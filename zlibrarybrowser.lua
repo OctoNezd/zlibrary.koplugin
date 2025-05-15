@@ -12,6 +12,7 @@ local logger = require("logger")
 local ButtonDialog = require("ui/widget/buttondialog")
 local ScrollHtmlWidget = require("ui/widget/scrollhtmlwidget")
 local T = require("ffi/util").template
+local base64 = require("base64")
 local ZLibraryBrowser = Menu:extend {}
 local Blitbuffer = require("ffi/blitbuffer")
 local Size = require("ui/size")
@@ -298,23 +299,6 @@ function ZLibraryBrowser:onBook(bookid)
     local res = self:request("/eapi/book/" .. bookid)
     if (not res) then return end
     res = res.book
-    -- self.book_dlg = buttondialog:new {
-    --     title = T(
-    --         _("%1 by %2 (Published by %3)\n\n%4"),
-    --         res.title, res.author, res.publisher, res.description
-    --     ),
-    --     buttons = {
-    --         {
-    --             {
-    --                 text = _("Download (") .. res.extension .. ")",
-    --                 callback = function()
-    --                     self:onDownload(bookid)
-    --                 end
-    --             }
-    --         }
-    --     }
-    -- }
-    -- UIManager:show(self.book_dlg)
     local frame_bordersize = Size.border.window
     local frame
     local button_table = ButtonTable:new {
@@ -341,11 +325,33 @@ function ZLibraryBrowser:onBook(bookid)
         zero_sep = true,
         show_parent = self,
     }
+    local cover_tbl = {}
+    local message = InfoMessage:new {
+        text = "Loading cover art..."
+    }
+    UIManager:show(message)
+    local ret, status, headers = http.request {
+        url = res.cover,
+        headers = self.headers,
+        method = "GET",
+        sink = ltn12.sink.table(cover_tbl)
+    }
+    local cover
+    if status ~= 200 then
+        logger.err("Failed to get cover art!" .. status)
+        cover = _("Failed to load cover<br/>")
+    else
+        cover = base64.encode(table.concat(cover_tbl))
+        cover = '<div class="cover"><img src="data:image/jpeg;base64,' ..
+            cover .. '" style="width: 300px"/></div><br/>'
+    end
+    UIManager:close(message)
     local textview = ScrollHtmlWidget:new {
-        html_body = T(
+        html_body = cover .. T(
             _("%1 by %2 (Published by %3)\n\n%4"),
             res.title, res.author, res.publisher, res.description
         ),
+        css = "img {text-align: center} .cover { text-align: center }",
         width = self.width,
         height = self.height - button_table:getSize().h,
         dialog = self
