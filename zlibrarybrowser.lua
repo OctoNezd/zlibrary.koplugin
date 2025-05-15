@@ -142,6 +142,8 @@ function ZLibraryBrowser:onMenuSelect(item)
         self:onPopuler()
     elseif misc.startswith(item.action, "book_") then
         self:onBook(args)
+    elseif misc.startswith(item.action, "similar_") then
+        self:onSimilar(args)
     else
         UIManager:show(InfoMessage:new {
             text = _("Not implemented"),
@@ -274,6 +276,15 @@ function ZLibraryBrowser:onPopuler()
     self:switchItemTable(_("Popular"), self:convertToItemTable(res.books))
 end
 
+function ZLibraryBrowser:onSimilar(bookid)
+    local res = self:request("/eapi/book/" .. bookid .. "/similar")
+    if (not res) then return end
+    table.insert(self.paths, {
+        title = _("Similar")
+    })
+    self:switchItemTable(_("Similar"), self:convertToItemTable(res.books))
+end
+
 function ZLibraryBrowser:getPageNumber(item_number)
     if misc.startswith(self.last_action, "search_") then
         return self.page_count
@@ -309,6 +320,16 @@ function ZLibraryBrowser:onBook(bookid)
                     text = _("Download") .. " (" .. res.extension .. ")",
                     callback = function()
                         self:onDownload(bookid)
+                    end
+                }
+            },
+            {
+                {
+                    text = _("Similar"),
+                    callback = function()
+                        UIManager:close(frame)
+                        self:updateItems(1, true)
+                        self:onMenuSelect({ action = "similar_" .. bookid })
                     end
                 }
             },
