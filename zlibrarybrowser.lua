@@ -9,10 +9,23 @@ local urlencode = require("urlencode")
 local json = require("json")
 local misc = require("misc")
 local logger = require("logger")
-local buttondialog = require("ui/widget/buttondialog")
+local ButtonDialog = require("ui/widget/buttondialog")
+local ScrollHtmlWidget = require("ui/widget/scrollhtmlwidget")
 local T = require("ffi/util").template
 local ZLibraryBrowser = Menu:extend {}
-
+local Blitbuffer = require("ffi/blitbuffer")
+local Size = require("ui/size")
+local VerticalSpan = require("ui/widget/verticalspan")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local VerticalGroup = require("ui/widget/verticalgroup")
+local VerticalSpan = require("ui/widget/verticalspan")
+local CenterContainer = require("ui/widget/container/centercontainer")
+local Geom = require("ui/geometry")
+local ButtonTable = require("ui/widget/buttontable")
+local WidgetContainer = require("ui/widget/container/widgetcontainer")
+local Device = require("device")
+local Screen = Device.screen
+local time = require("ui/time")
 function ZLibraryBrowser:init()
     self.catalog_title = "Z-Library"
     self.item_table = self:genItemTableFromRoot()
@@ -24,6 +37,8 @@ function ZLibraryBrowser:init()
         ['Cookie'] = T("remix-userid=%1; remix-userkey=%2", self.settings.userid, self.settings.userkey)
     }
     self.last_action = ""
+    self.width = Screen:getWidth()
+    self.height = Screen:getHeight()
     Menu.init(self)
 end
 
@@ -49,6 +64,10 @@ function ZLibraryBrowser:genItemTableFromRoot()
         {
             text = _("Recommended"),
             action = "recommended"
+        },
+        {
+            text = _("Saved"),
+            action = "saved"
         },
         {
             text = _("Popular"),
@@ -113,6 +132,9 @@ function ZLibraryBrowser:onMenuSelect(item)
     elseif item.action == "downloaded" then
         self.page = 1
         self:onDownloaded(self.page)
+    elseif item.action == "saved" then
+        self.page = 1
+        self:onSaved(self.page)
     elseif item.action == "recommended" then
         self:onRecommended()
     elseif item.action == "popular" then
@@ -224,6 +246,15 @@ function ZLibraryBrowser:onDownloaded(page)
     self:handlePaged(res, page, _("Downloaded"))
 end
 
+function ZLibraryBrowser:onSaved(page)
+    local res = self:request("/eapi/user/book/saved?" .. urlencode.table({
+        limit = self.perpage,
+        page = page
+    }))
+    if (not res) then return end
+    self:handlePaged(res, page, _("Saved"))
+end
+
 function ZLibraryBrowser:onRecommended()
     local res = self:request("/eapi/user/book/recommended")
     if (not res) then return end
@@ -256,6 +287,9 @@ function ZLibraryBrowser:onGotoPage(page)
     elseif self.last_action == "downloaded" then
         self:onDownload(page)
         return true
+    elseif self.last_action == "saved" then
+        self:onSaved(page)
+        return true
     end
     return Menu.onGotoPage(self, page)
 end
@@ -264,24 +298,84 @@ function ZLibraryBrowser:onBook(bookid)
     local res = self:request("/eapi/book/" .. bookid)
     if (not res) then return end
     res = res.book
-    logger.info(res)
-    self.book_dlg = buttondialog:new {
-        title = T(
-            _("%1 by %2 (Published by %3)\n\n%4"),
-            res.title, res.author, res.publisher, res.description
-        ),
+    -- self.book_dlg = buttondialog:new {
+    --     title = T(
+    --         _("%1 by %2 (Published by %3)\n\n%4"),
+    --         res.title, res.author, res.publisher, res.description
+    --     ),
+    --     buttons = {
+    --         {
+    --             {
+    --                 text = _("Download (") .. res.extension .. ")",
+    --                 callback = function()
+    --                     self:onDownload(bookid)
+    --                 end
+    --             }
+    --         }
+    --     }
+    -- }
+    -- UIManager:show(self.book_dlg)
+    local frame_bordersize = Size.border.window
+    local frame
+    local button_table = ButtonTable:new {
+        width = self.width,
         buttons = {
             {
                 {
-                    text = _("Download (") .. res.extension .. ")",
+                    text = _("Download") .. " (" .. res.extension .. ")",
                     callback = function()
                         self:onDownload(bookid)
                     end
                 }
+            },
+            {
+                {
+                    text = _("Close"),
+                    callback = function()
+                        UIManager:close(frame)
+                        self:updateItems(1, true)
+                    end
+                }
+            }
+        },
+        zero_sep = true,
+        show_parent = self,
+    }
+    local textview = ScrollHtmlWidget:new {
+        html_body = T(
+            _("%1 by %2 (Published by %3)\n\n%4"),
+            res.title, res.author, res.publisher, res.description
+        ),
+        width = self.width,
+        height = self.height - button_table:getSize().h,
+        dialog = self
+    }
+    frame = FrameContainer:new {
+        radius = Size.radius.window,
+        bordersize = frame_bordersize,
+        padding = 0,
+        margin = 0,
+        background = Blitbuffer.COLOR_WHITE,
+        VerticalGroup:new {
+            align = "left",
+            CenterContainer:new {
+                dimen = Geom:new {
+                    w = self.width,
+                    h = textview:getSize().h,
+                },
+                textview,
+            },
+            -- buttons
+            CenterContainer:new {
+                dimen = Geom:new {
+                    w = self.width,
+                    h = button_table:getSize().h,
+                },
+                button_table,
             }
         }
     }
-    UIManager:show(self.book_dlg)
+    UIManager:nextTick(function() UIManager:show(frame) end)
 end
 
 function ZLibraryBrowser:onDownload(bookid)
