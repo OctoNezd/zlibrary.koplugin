@@ -473,7 +473,7 @@ function ZLibraryBrowser:onBook(bookid)
         buttons = {
             {
                 {
-                    text = _("Download") .. " (" .. res.extension .. ")",
+                    text = _("Download") .. " (" .. res.extension .. ", " .. res.filesizeString .. ")",
                     callback = function()
                         self:onDownload(bookid)
                     end
