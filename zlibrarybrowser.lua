@@ -42,6 +42,9 @@ end
 
 function ZLibraryBrowser:checkSettingsSanity()
     local profile
+    if self.settings.history == nil then
+        self.settings.history = {}
+    end
     if self.settings.endpoint == nil then
         profile = false
     else
@@ -205,6 +208,10 @@ function ZLibraryBrowser:genItemTableFromRoot()
             action = "search"
         },
         {
+            text = _("Search history"),
+            action = "searchhistory"
+        },
+        {
             text = _("Recommended"),
             action = "recommended"
         },
@@ -274,6 +281,8 @@ function ZLibraryBrowser:onMenuSelect(item)
     self.last_action = item.action
     if item.action == "search" then
         self:onSearchMenuItem()
+    elseif item.action == "searchhistory" then
+        self:onSearchHistory()
     elseif misc.startswith(item.action, "search_") then
         self.page = 1
         self:onSearch(args, self.page)
@@ -306,10 +315,10 @@ function ZLibraryBrowser:onReturn()
     if path then
         -- return to last path
         self.catalog_title = path.title
-        self:onMenuSelect({ action = path.url })
+        self:onMenuSelect({ action = path.action })
     else
-        -- return to root path, we simply reinit opdsbrowser
-        self:init()
+        self.item_table = self:genItemTableFromRoot()
+        Menu.init(self)
     end
     return true
 end
@@ -353,7 +362,6 @@ end
 function ZLibraryBrowser:convertToItemTable(books)
     local book_tbl = {}
     for k, v in pairs(books) do
-        logger.info(v)
         local template = _("%1 by %2 (%3, %4)")
         if v["extension"] == nil then
             template = _("%1 by %2")
@@ -387,6 +395,8 @@ function ZLibraryBrowser:handlePaged(res, page, title)
 end
 
 function ZLibraryBrowser:onSearch(query, page)
+    table.insert(self.settings.history, 0, query)
+    self:saveSettings()
     local res = self:request("/eapi/book/search", "POST", {
         message = query,
         limit = self.perpage,
@@ -646,6 +656,21 @@ function ZLibraryBrowser:onConfig()
         }
     }
     UIManager:show(dialog)
+end
+
+function ZLibraryBrowser:onSearchHistory()
+    local items = {}
+    table.insert(self.paths, {
+        title = _("Search history"),
+        action = "searchhistory"
+    })
+    for _, item in pairs(self.settings.history) do
+        table.insert(items, {
+            text = item,
+            action = "search_" .. item
+        })
+    end
+    self:switchItemTable(_("Search history"), items)
 end
 
 return ZLibraryBrowser
