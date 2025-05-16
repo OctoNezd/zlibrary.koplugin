@@ -421,9 +421,10 @@ function ZLibraryBrowser:onDownload(bookid)
     local res = self:request("/eapi/book/" .. bookid .. "/file")
     if (not res) then return end
     res = res.file
-    local filepath = T("%1/%2.%3",
+    local filepath = T("%1/%2_%3.%4",
         self.settings.download_dir,
         string.gsub(res.description, "[<>:\"/\\|?*]", ''),
+        bookid:gsub("/", "_"),
         res.extension)
     local file = io.open(filepath, 'w')
     if file == nil then
