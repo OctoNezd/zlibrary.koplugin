@@ -48,6 +48,9 @@ function ZLibraryBrowser:checkSettingsSanity()
     if self.settings.language == nil then
         self.settings.language = "all"
     end
+    if self.settings.extension == nil then
+        self.settings.extension = "all"
+    end
     if self.settings.endpoint == nil then
         profile = false
     else
@@ -304,6 +307,8 @@ function ZLibraryBrowser:onMenuSelect(item)
         self:onConfig()
     elseif misc.startswith(item.action, "setlang_") then
         self:onLangChange(args)
+    elseif misc.startswith(item.action, "setext_") then
+        self:onExtensionChange(args)
     elseif misc.startswith(item.action, "book_") then
         self:onBook(args)
     elseif misc.startswith(item.action, "similar_") then
@@ -410,6 +415,9 @@ function ZLibraryBrowser:onSearch(query, page)
     }
     if self.settings.language ~= "all" then
         query["languages[]"] = self.settings.language
+    end
+    if self.settings.extension ~= "all" then
+        query["extensions[]"] = self.settings.extension
     end
     local res = self:request("/eapi/book/search", "POST", query)
     if (not res) then return end
@@ -666,6 +674,15 @@ function ZLibraryBrowser:onConfig()
             },
             {
                 {
+                    text = _("Extensions"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:onExtensionPicker()
+                    end
+                }
+            },
+            {
+                {
                     text = _("Close"),
                     callback = function()
                         UIManager:close(dialog)
@@ -723,6 +740,41 @@ end
 
 function ZLibraryBrowser:onLangChange(lang)
     self.settings.language = lang
+    self:saveSettings()
+    self:onReturn()
+end
+
+function ZLibraryBrowser:onExtensionPicker()
+    local extensions = self:request("/eapi/info/extensions")
+    if not extensions then return end
+    local indicator_on = "◉"
+    local indicator_off = "◯"
+    local all_active = indicator_off
+    if self.settings.extension == "all" then
+        all_active = indicator_on
+    end
+
+    local items = {
+        {
+            text = all_active .. _("All"),
+            action = "setext_all"
+        }
+    }
+    for _, extension in pairs(extensions.extensions) do
+        local active = indicator_off
+        if extension == self.settings.extension then
+            active = indicator_on
+        end
+        table.insert(items, {
+            text = active .. extension,
+            action = "setext_" .. extension
+        })
+    end
+    self:switchItemTable(_("Extensions"), items)
+end
+
+function ZLibraryBrowser:onExtensionChange(extension)
+    self.settings.extension = extension
     self:saveSettings()
     self:onReturn()
 end
