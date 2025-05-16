@@ -118,13 +118,14 @@ function ZLibraryBrowser:onSearchMenuItem()
 end
 
 function ZLibraryBrowser:onMenuSelect(item)
-    self.last_action = item.action
     if item.action == nil then
         logger.err("Invalid menu item! Returning to start")
         self:init()
         return
     end
     local args = misc.split(item.action, "_")[2]
+    self.previous_action = self.last_action
+    self.last_action = item.action
     if item.action == "search" then
         self:onSearchMenuItem()
     elseif misc.startswith(item.action, "search_") then
@@ -204,7 +205,7 @@ function ZLibraryBrowser:convertToItemTable(books)
     for k, v in pairs(books) do
         table.insert(book_tbl, {
             text = T("%1 by %2 (%3)",
-                v["title"], v["author"], tostring(v["publisher"])
+                v["title"], v["author"], (v["extension"])
             ),
             action = "book_" .. v.id .. "/" .. v.hash
         })
@@ -338,6 +339,8 @@ function ZLibraryBrowser:onBook(bookid)
                     text = _("Close"),
                     callback = function()
                         UIManager:close(frame)
+                        -- restore our previous action
+                        self.last_action = self.previous_action
                         self:updateItems(1, true)
                     end
                 }
@@ -367,6 +370,9 @@ function ZLibraryBrowser:onBook(bookid)
             cover .. '" style="width: 300px"/></div><br/>'
     end
     UIManager:close(message)
+    if type(res.publisher) == "function" then
+        res.publisher = _("Unknown publisher")
+    end
     local textview = ScrollHtmlWidget:new {
         html_body = cover .. T(
             _("%1 by %2 (Published by %3)\n\n%4"),
