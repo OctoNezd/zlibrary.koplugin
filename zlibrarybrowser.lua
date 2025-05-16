@@ -167,6 +167,12 @@ function ZLibraryBrowser:login(endpoint, login, password, remember_me)
     return true
 end
 
+function ZLibraryBrowser:setupHeaders()
+    self.headers['remix-userid'] = self.settings.userid
+    self.headers['remix-userkey'] = self.settings.userkey
+    self.headers['Cookie'] = T("remix-userid=%1; remix-userkey=%2", self.settings.userid, self.settings.userkey)
+end
+
 function ZLibraryBrowser:loadSettings()
     local file = io.open("plugins/zlibrary.koplugin/settings.json", 'r')
     if file == nil then
@@ -175,9 +181,7 @@ function ZLibraryBrowser:loadSettings()
     local data = file:read("*a")
     data = json.decode(data)
     file:close()
-    self.headers['remix-userid'] = data.userid
-    self.headers['remix-userkey'] = data.userkey
-    self.headers['Cookie'] = T("remix-userid=%1; remix-userkey=%2", data.userid, data.userkey)
+    self:setupHeaders()
     return data
 end
 
@@ -191,6 +195,7 @@ function ZLibraryBrowser:saveSettings()
     end
     file:write(json.encode(self.settings))
     file:close()
+    self:setupHeaders()
 end
 
 function ZLibraryBrowser:genItemTableFromRoot()
