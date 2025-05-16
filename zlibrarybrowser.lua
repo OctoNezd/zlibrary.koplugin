@@ -524,14 +524,23 @@ function ZLibraryBrowser:onBook(bookid)
         cover = '<div class="cover"><img src="data:image/jpeg;base64,' ..
             cover .. '" style="width: 300px"/></div><br/>'
     end
+    local comments = "Failed to load comments"
+    local comments_data = self:request("/papi/comments/book/" .. misc.split(bookid, "/")[1], "GET", "", true)
+    if comments_data then
+        comments = ""
+        for _, comment in pairs(comments_data.comments) do
+            comments = comments .. T("<br><i>%1: </i>%2", comment.user.name, comment.text)
+        end
+    end
+
     UIManager:close(message)
     if type(res.publisher) == "function" then
         res.publisher = _("Unknown publisher")
     end
     local textview = ScrollHtmlWidget:new {
         html_body = cover .. T(
-            _("%1 by %2 (Published by %3)\n\n%4"),
-            res.title, res.author, res.publisher, res.description
+            _("%1 by %2 (Published by %3)<br/>%4<br/><b>Comments:</b><br/>%5"),
+            res.title, res.author, res.publisher, res.description, comments
         ),
         css = "img {text-align: center} .cover { text-align: center }",
         width = self.width,
