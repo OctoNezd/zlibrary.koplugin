@@ -215,27 +215,27 @@ function ZLibraryBrowser:genItemTableFromRoot()
             action = "search"
         },
         {
-            text = _("Search history"),
+            text = "\u{f1da} " .. _("Search history"),
             action = "searchhistory"
         },
         {
-            text = _("Recommended"),
+            text = "\u{e8c8} " .. _("Recommended"),
             action = "recommended"
         },
         {
-            text = _("Saved"),
+            text = "\u{e7b9} " .. _("Saved"),
             action = "saved"
         },
         {
-            text = _("Popular"),
+            text = "\u{eb62} " .. _("Popular"),
             action = "popular"
         },
         {
-            text = _("Previously downloaded"),
+            text = "\u{e8d9}" .. _("Previously downloaded"),
             action = "downloaded"
         },
         {
-            text = _("Configuration"),
+            text = "\u{eb92} " .. _("Configuration"),
             action = "config"
         }
     }
