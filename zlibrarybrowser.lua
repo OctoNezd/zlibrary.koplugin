@@ -3,57 +3,194 @@ local _ = require("gettext")
 local InfoMessage = require("ui/widget/infomessage")
 local UIManager = require("ui/uimanager")
 local InputDialog = require("ui/widget/inputdialog")
-local http = require("socket.http")
+local http = require("socket/http")
 local ltn12 = require("ltn12")
 local urlencode = require("urlencode")
 local json = require("json")
 local misc = require("misc")
 local logger = require("logger")
-local ButtonDialog = require("ui/widget/buttondialog")
 local ScrollHtmlWidget = require("ui/widget/scrollhtmlwidget")
 local T = require("ffi/util").template
+local Blitbuffer = require("ffi/blitbuffer")
 local base64 = require("base64")
 local ZLibraryBrowser = Menu:extend {}
-local Blitbuffer = require("ffi/blitbuffer")
 local Size = require("ui/size")
-local VerticalSpan = require("ui/widget/verticalspan")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local VerticalGroup = require("ui/widget/verticalgroup")
-local VerticalSpan = require("ui/widget/verticalspan")
 local CenterContainer = require("ui/widget/container/centercontainer")
 local Geom = require("ui/geometry")
 local ButtonTable = require("ui/widget/buttontable")
-local WidgetContainer = require("ui/widget/container/widgetcontainer")
+local MultiInputDialog = require("ui/widget/multiinputdialog")
+local CheckButton = require("ui/widget/CheckButton")
 local Device = require("device")
+local util = require("util")
 local Screen = Device.screen
-local time = require("ui/time")
 function ZLibraryBrowser:init()
     self.catalog_title = "Z-Library"
     self.item_table = self:genItemTableFromRoot()
-    self.settings = self:loadSettings()
     self.headers = {
-        ['remix-userid'] = self.settings.userid,
-        ['remix-userkey'] = self.settings.userkey,
         ['Content-Type'] = 'application/x-www-form-urlencoded',
-        ['Cookie'] = T("remix-userid=%1; remix-userkey=%2", self.settings.userid, self.settings.userkey)
     }
+    self.settings = self:loadSettings()
     self.last_action = ""
     self.width = Screen:getWidth()
     self.height = Screen:getHeight()
     Menu.init(self)
+    self:checkSettingsSanity()
+end
+
+function ZLibraryBrowser:checkSettingsSanity()
+    local profile
+    if self.settings.endpoint == nil then
+        profile = false
+    else
+        profile = self:request("/eapi/user/profile", "GET", "", true)
+    end
+    if (profile == false) then
+        logger.err("Error on /user/profile: Starting login flow")
+        UIManager:nextTick(function() self:loginFlow() end)
+    end
+    if (self.settings.download_dir == nil) then
+        logger.err("no download dir set")
+        UIManager:nextTick(function() self:downloadDirFlow() end)
+    end
+end
+
+function ZLibraryBrowser:downloadDirFlow()
+    local dialog
+    local suggested_dir = ""
+    if Device:isKindle() then
+        suggested_dir = "/mnt/us/books"
+    end
+    dialog = InputDialog:new {
+        title = _("You dont have download directory set."),
+        input = suggested_dir,
+        input_hint = _("E.g. /Users/octo/books"),
+        buttons = {
+            {
+                {
+                    text = _("Set"),
+                    id = "set",
+                    is_enter_default = true,
+                    callback = function()
+                        local path = dialog:getInputText()
+                        self.settings.download_dir = path
+                        self:saveSettings()
+                        logger.info(util.makePath(path))
+                        UIManager:close(dialog)
+                    end
+                }
+            }
+        }
+    }
+    UIManager:show(dialog)
+    dialog:onShowKeyboard()
+end
+
+function ZLibraryBrowser:loginFlow()
+    local fields = {
+        {
+            hint = "Z-Library instance"
+        },
+        {
+            hint = "Login"
+        },
+        {
+            hint = "Password",
+            text_type = "password"
+        }
+    }
+    local dialog, remember_me
+    local remembered_login = self.settings.login and self.settings.login or ""
+    local remembered_password = self.settings.password and self.settings.password or ""
+    if remembered_login ~= "" then
+        logger.info("trying to log in with remembered log/pass")
+        if self:login(self.settings.endpoint) then
+            return
+        end
+        logger.err("failed to log in with remembered password")
+    else
+        logger.info("no saved log/pass")
+    end
+    dialog = MultiInputDialog:new {
+        fields = fields,
+        title = _("Please log in"),
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    callback = function()
+                        UIManager:show(InfoMessage:new {
+                            text = _("You chose not to log in. You will have limited functionality and only 5 downloads per day."),
+                            UIManager:close(dialog)
+                        })
+                    end
+                },
+                {
+                    text = _("Login"),
+                    callback = function()
+                        local fields = dialog:getFields()
+                        local endpoint = fields[1]
+                        local login = fields[2]
+                        local password = fields[3]
+                        if self:login(endpoint, login, password, remember_me.checked) then
+                            UIManager:close(dialog)
+                        end
+                    end
+                }
+            }
+        }
+    }
+    remember_me = CheckButton:new {
+        text = _("Remember me"),
+        parent = dialog,
+        checked = true,
+    }
+    dialog:addWidget(remember_me)
+    UIManager:nextTick(function() UIManager:show(dialog) end)
+end
+
+function ZLibraryBrowser:login(endpoint, login, password, remember_me)
+    self.settings["endpoint"] = endpoint
+    local res = self:request("/eapi/user/login", "POST", {
+        email = login,
+        password = password
+    })
+    if (not res) then return false end
+    self.settings["userid"] = res.user.id
+    self.settings["userkey"] = res.user.remix_userkey
+    if remember_me then
+        self.settings["login"] = login
+        self.settings["password"] = password
+    end
+    self:saveSettings()
+    return true
 end
 
 function ZLibraryBrowser:loadSettings()
     local file = io.open("plugins/zlibrary.koplugin/settings.json", 'r')
     if file == nil then
+        return {}
+    end
+    local data = file:read("*a")
+    data = json.decode(data)
+    file:close()
+    self.headers['remix-userid'] = data.userid
+    self.headers['remix-userkey'] = data.userkey
+    self.headers['Cookie'] = T("remix-userid=%1; remix-userkey=%2", data.userid, data.userkey)
+    return data
+end
+
+function ZLibraryBrowser:saveSettings()
+    local file = io.open("plugins/zlibrary.koplugin/settings.json", 'w')
+    if file == nil then
         UIManager:show(InfoMessage:new {
-            text = "Settings file is missing!"
+            text = _("Failed to open settings for writing. This should be impossible.")
         })
         return
     end
-    local data = file:read("*a")
-    logger.info(data)
-    return json.decode(data)
+    file:write(json.encode(self.settings))
+    file:close()
 end
 
 function ZLibraryBrowser:genItemTableFromRoot()
@@ -103,7 +240,7 @@ function ZLibraryBrowser:onSearchMenuItem()
                     is_enter_default = true,
                     callback = function()
                         local query = dialog:getInputText()
-                        print("Searching for", query)
+                        logger.info("Searching for", query)
                         UIManager:close(dialog)
                         self:onMenuSelect({
                             action = "search_" .. query
@@ -166,7 +303,7 @@ function ZLibraryBrowser:onReturn()
     return true
 end
 
-function ZLibraryBrowser:request(path, method, query)
+function ZLibraryBrowser:request(path, method, query, suppress_error)
     local body = ""
     if method == "POST" then
         body = urlencode.table(query)
@@ -183,9 +320,11 @@ function ZLibraryBrowser:request(path, method, query)
     if (status ~= 200) then
         logger.err("error during request:")
         logger.err(response)
-        UIManager:show(InfoMessage:new {
-            text = "Error during request: " .. tostring(ret) .. "-" .. tostring(status) .. "\n\n" .. response
-        })
+        if not suppress_error then
+            UIManager:show(InfoMessage:new {
+                text = "Error during request: " .. tostring(ret) .. "-" .. tostring(status) .. "\n\n" .. response
+            })
+        end
         return false
     end
     local res = json.decode(response)
