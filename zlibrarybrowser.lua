@@ -246,7 +246,6 @@ function ZLibraryBrowser:indexPage()
     self.page_count = 1
     self:switchItemTable("Z-Library", item_table)
     if (self.profile) then
-        logger.info(self.profile)
         self.page_info_text:setText(T(_("%1/%2 DLs remaining"),
             self.profile.user.downloads_today,
             self.profile.user.downloads_limit))
