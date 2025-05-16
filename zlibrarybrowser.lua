@@ -45,6 +45,9 @@ function ZLibraryBrowser:checkSettingsSanity()
     if self.settings.history == nil then
         self.settings.history = {}
     end
+    if self.settings.language == nil then
+        self.settings.language = "all"
+    end
     if self.settings.endpoint == nil then
         profile = false
     else
@@ -105,7 +108,7 @@ function ZLibraryBrowser:loginFlow()
     local dialog, remember_me
     local fields = {
         {
-            hint = "Z-Library instance"
+            hint = "Z-Library instance (starting with https://, WITHOUT /)"
         },
         {
             hint = "Login"
@@ -299,6 +302,8 @@ function ZLibraryBrowser:onMenuSelect(item)
         self:onPopular()
     elseif item.action == "config" then
         self:onConfig()
+    elseif misc.startswith(item.action, "setlang_") then
+        self:onLangChange(args)
     elseif misc.startswith(item.action, "book_") then
         self:onBook(args)
     elseif misc.startswith(item.action, "similar_") then
@@ -398,11 +403,15 @@ end
 function ZLibraryBrowser:onSearch(query, page)
     table.insert(self.settings.history, 0, query)
     self:saveSettings()
-    local res = self:request("/eapi/book/search", "POST", {
+    query = {
         message = query,
         limit = self.perpage,
         page = page
-    })
+    }
+    if self.settings.language ~= "all" then
+        query["languages[]"] = self.settings.language
+    end
+    local res = self:request("/eapi/book/search", "POST", query)
     if (not res) then return end
     self:handlePaged(res, page, _("Search Results"))
 end
@@ -648,6 +657,15 @@ function ZLibraryBrowser:onConfig()
             },
             {
                 {
+                    text = _("Languages"),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:onLanguagePicker()
+                    end
+                }
+            },
+            {
+                {
                     text = _("Close"),
                     callback = function()
                         UIManager:close(dialog)
@@ -672,6 +690,41 @@ function ZLibraryBrowser:onSearchHistory()
         })
     end
     self:switchItemTable(_("Search history"), items)
+end
+
+function ZLibraryBrowser:onLanguagePicker()
+    local languages = self:request("/eapi/info/languages")
+    if not languages then return end
+    local indicator_on = "◉"
+    local indicator_off = "◯"
+    local all_active = indicator_off
+    if self.settings.language == "all" then
+        all_active = indicator_on
+    end
+
+    local items = {
+        {
+            text = all_active .. _("All"),
+            action = "setlang_all"
+        }
+    }
+    for code, language in pairs(languages.languages) do
+        local active = indicator_off
+        if code == self.settings.language then
+            active = indicator_on
+        end
+        table.insert(items, {
+            text = active .. language,
+            action = "setlang_" .. code
+        })
+    end
+    self:switchItemTable(_("Languages"), items)
+end
+
+function ZLibraryBrowser:onLangChange(lang)
+    self.settings.language = lang
+    self:saveSettings()
+    self:onReturn()
 end
 
 return ZLibraryBrowser
