@@ -179,7 +179,8 @@ end
 function ZLibraryBrowser:loadSettings()
     local file = io.open("plugins/zlibrary.koplugin/settings.json", 'r')
     if file == nil then
-        return {}
+        self.settings = {}
+        return
     end
     local data = file:read("*a")
     data = json.decode(data)
