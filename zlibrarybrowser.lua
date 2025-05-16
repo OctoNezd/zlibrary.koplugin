@@ -354,13 +354,13 @@ function ZLibraryBrowser:convertToItemTable(books)
     local book_tbl = {}
     for k, v in pairs(books) do
         logger.info(v)
-        local template = _("%1 by %2 (%3)")
+        local template = _("%1 by %2 (%3) (%4)")
         if v["extension"] == nil then
             template = _("%1 by %2")
         end
         table.insert(book_tbl, {
             text = T(template,
-                v["title"], v["author"], v["extension"]
+                v["title"], v["author"], v["extension"], v["filesizeString"]
             ),
             action = "book_" .. v.id .. "/" .. v.hash
         })
