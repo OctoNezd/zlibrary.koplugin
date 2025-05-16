@@ -30,6 +30,7 @@ function ZLibrary:onShowZLibrary()
         is_popout = false,
         is_borderless = true,
         title_bar_fm_style = true,
+        multilines_show_more_text = true
     }
     UIManager:show(self.destinationselector)
 end

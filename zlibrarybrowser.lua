@@ -205,7 +205,7 @@ function ZLibraryBrowser:convertToItemTable(books)
     for k, v in pairs(books) do
         table.insert(book_tbl, {
             text = T("%1 by %2 (%3)",
-                v["title"], v["author"], (v["extension"])
+                v["title"], v["author"], v["extension"]
             ),
             action = "book_" .. v.id .. "/" .. v.hash
         })
