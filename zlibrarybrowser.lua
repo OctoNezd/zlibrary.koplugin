@@ -22,6 +22,7 @@ local Geom = require("ui/geometry")
 local ButtonTable = require("ui/widget/buttontable")
 local MultiInputDialog = require("ui/widget/multiinputdialog")
 local CheckButton = require("ui/widget/CheckButton")
+local ButtonDialog = require("ui.widget.buttondialog")
 local Device = require("device")
 local util = require("util")
 local Screen = Device.screen
@@ -31,7 +32,7 @@ function ZLibraryBrowser:init()
     self.headers = {
         ['Content-Type'] = 'application/x-www-form-urlencoded',
     }
-    self.settings = self:loadSettings()
+    self:loadSettings()
     self.last_action = ""
     self.width = Screen:getWidth()
     self.height = Screen:getHeight()
@@ -88,6 +89,17 @@ function ZLibraryBrowser:downloadDirFlow()
 end
 
 function ZLibraryBrowser:loginFlow()
+    local remembered_login = self.settings.login and self.settings.login or ""
+    if remembered_login ~= "" then
+        logger.info("trying to log in with remembered log/pass")
+        if self:login(self.settings.endpoint, self.settings.login, self.settings.password) then
+            return
+        end
+        logger.err("failed to log in with remembered password")
+    else
+        logger.info("no saved log/pass")
+    end
+    local dialog, remember_me
     local fields = {
         {
             hint = "Z-Library instance"
@@ -100,18 +112,6 @@ function ZLibraryBrowser:loginFlow()
             text_type = "password"
         }
     }
-    local dialog, remember_me
-    local remembered_login = self.settings.login and self.settings.login or ""
-    local remembered_password = self.settings.password and self.settings.password or ""
-    if remembered_login ~= "" then
-        logger.info("trying to log in with remembered log/pass")
-        if self:login(self.settings.endpoint) then
-            return
-        end
-        logger.err("failed to log in with remembered password")
-    else
-        logger.info("no saved log/pass")
-    end
     dialog = MultiInputDialog:new {
         fields = fields,
         title = _("Please log in"),
@@ -180,9 +180,9 @@ function ZLibraryBrowser:loadSettings()
     end
     local data = file:read("*a")
     data = json.decode(data)
+    self.settings = data
     file:close()
     self:setupHeaders()
-    return data
 end
 
 function ZLibraryBrowser:saveSettings()
@@ -219,6 +219,10 @@ function ZLibraryBrowser:genItemTableFromRoot()
         {
             text = _("Previously downloaded"),
             action = "downloaded"
+        },
+        {
+            text = _("Configuration"),
+            action = "config"
         }
     }
     self.page_count = 1
@@ -282,7 +286,9 @@ function ZLibraryBrowser:onMenuSelect(item)
     elseif item.action == "recommended" then
         self:onRecommended()
     elseif item.action == "popular" then
-        self:onPopuler()
+        self:onPopular()
+    elseif item.action == "config" then
+        self:onConfig()
     elseif misc.startswith(item.action, "book_") then
         self:onBook(args)
     elseif misc.startswith(item.action, "similar_") then
@@ -417,7 +423,7 @@ function ZLibraryBrowser:onRecommended()
     self:switchItemTable(_("Recommended"), self:convertToItemTable(res.books))
 end
 
-function ZLibraryBrowser:onPopuler()
+function ZLibraryBrowser:onPopular()
     local res = self:request("/eapi/book/most-popular")
     if (not res) then return end
     table.insert(self.paths, {
@@ -594,6 +600,43 @@ function ZLibraryBrowser:onDownload(bookid)
     UIManager:show(InfoMessage:new {
         text = "Downloaded to " .. filepath .. " successfully!"
     })
+end
+
+function ZLibraryBrowser:onConfig()
+    local dialog
+    dialog = ButtonDialog:new {
+        title = "Config",
+        buttons = {
+            {
+                {
+                    text = _("Set download dir"),
+                    callback = function() self:downloadDirFlow() end
+                }
+            },
+            {
+                {
+                    text = _("Logout"),
+                    callback = function()
+                        self.settings.login = nil
+                        self.settings.password = nil
+                        self.settings.userid = nil
+                        self.settings.userkey = nil
+                        self:saveSettings()
+                        self:loginFlow()
+                    end
+                }
+            },
+            {
+                {
+                    text = _("Close"),
+                    callback = function()
+                        UIManager:close(dialog)
+                    end
+                }
+            }
+        }
+    }
+    UIManager:show(dialog)
 end
 
 return ZLibraryBrowser
