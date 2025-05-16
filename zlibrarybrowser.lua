@@ -425,17 +425,25 @@ function ZLibraryBrowser:onDownload(bookid)
         self.settings.download_dir,
         string.gsub(res.description, "[<>:\"/\\|?*]", ''),
         res.extension)
+    local file = io.open(filepath, 'w')
+    if file == nil then
+        UIManager:show(InfoMessage:new {
+            text = _("Failed to open file ") .. filepath
+        })
+        return
+    end
     local ret, status, headers = http.request {
         method = "GET",
         url = res.downloadLink,
-        sink = ltn12.sink.file(io.open(filepath, 'w'))
+        sink = ltn12.sink.file(file)
     }
     if (status ~= 200) then
         logger.err("Request failed!")
         logger.err(res)
         UIManager:show(InfoMessage:new {
-            text = "Error during request: " .. ret .. "-" .. status
+            text = _("Error during request: ") .. status
         })
+        return
     end
     UIManager:close(self.book_dlg)
     UIManager:show(InfoMessage:new {
