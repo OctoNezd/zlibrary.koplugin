@@ -28,7 +28,6 @@ local util = require("util")
 local Screen = Device.screen
 function ZLibraryBrowser:init()
     self.catalog_title = "Z-Library"
-    self.item_table = self:genItemTableFromRoot()
     self.headers = {
         ['Content-Type'] = 'application/x-www-form-urlencoded',
     }
@@ -38,10 +37,10 @@ function ZLibraryBrowser:init()
     self.height = Screen:getHeight()
     Menu.init(self)
     self:checkSettingsSanity()
+    self:indexPage()
 end
 
 function ZLibraryBrowser:checkSettingsSanity()
-    local profile
     if self.settings.history == nil then
         self.settings.history = {}
     end
@@ -52,11 +51,11 @@ function ZLibraryBrowser:checkSettingsSanity()
         self.settings.extension = "all"
     end
     if self.settings.endpoint == nil then
-        profile = false
+        self.profile = false
     else
-        profile = self:request("/eapi/user/profile", "GET", "", true)
+        self:loadProfileData()
     end
-    if (profile == false) then
+    if (self.profile == false) then
         logger.err("Error on /user/profile: Starting login flow")
         UIManager:nextTick(function() self:loginFlow() end)
     end
@@ -64,6 +63,10 @@ function ZLibraryBrowser:checkSettingsSanity()
         logger.err("no download dir set")
         UIManager:nextTick(function() self:downloadDirFlow() end)
     end
+end
+
+function ZLibraryBrowser:loadProfileData()
+    self.profile = self:request("/eapi/user/profile", "GET", "", true)
 end
 
 function ZLibraryBrowser:downloadDirFlow()
@@ -173,6 +176,7 @@ function ZLibraryBrowser:login(endpoint, login, password, remember_me)
         self.settings["password"] = password
     end
     self:saveSettings()
+    self:loadProfileData()
     return true
 end
 
@@ -208,7 +212,7 @@ function ZLibraryBrowser:saveSettings()
     self:setupHeaders()
 end
 
-function ZLibraryBrowser:genItemTableFromRoot()
+function ZLibraryBrowser:indexPage()
     local item_table = {
         {
             text = "\u{f002} " .. _("Search"),
@@ -240,6 +244,17 @@ function ZLibraryBrowser:genItemTableFromRoot()
         }
     }
     self.page_count = 1
+    self:switchItemTable("Z-Library", item_table)
+    if (self.profile) then
+        logger.info(self.profile)
+        self.page_info_text:setText(T(_("%1/%2 DLs remaining"),
+            self.profile.user.downloads_today,
+            self.profile.user.downloads_limit))
+        self.page_info_left_chev:hide()
+        self.page_info_right_chev:hide()
+        self.page_info_first_chev:hide()
+        self.page_info_last_chev:hide()
+    end
     return item_table
 end
 
@@ -328,8 +343,8 @@ function ZLibraryBrowser:onReturn()
         self.catalog_title = path.title
         self:onMenuSelect({ action = path.action })
     else
-        self.item_table = self:genItemTableFromRoot()
-        Menu.init(self)
+        self:indexPage()
+        -- Menu.init(self)
     end
     return true
 end
