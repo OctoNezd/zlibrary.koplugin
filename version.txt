@@ -1,2 +1,2 @@
-f3900a9 implement updates
- create mode 100644 version.txt
+385a0f8 Add hooks
+ create mode 100755 .hooks/pre-commit

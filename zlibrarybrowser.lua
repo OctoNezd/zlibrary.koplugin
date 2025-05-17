@@ -48,6 +48,7 @@ function ZLibraryBrowser:getVersion()
         return
     end
     self.version = file:read()
+    file:close()
 end
 
 function ZLibraryBrowser:checkSettingsSanity()
