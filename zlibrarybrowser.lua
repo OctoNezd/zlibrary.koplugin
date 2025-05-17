@@ -38,17 +38,6 @@ function ZLibraryBrowser:init()
     Menu.init(self)
     self:checkSettingsSanity()
     self:indexPage()
-    self:getVersion()
-end
-
-function ZLibraryBrowser:getVersion()
-    local file = io.open("plugins/zlibrary.koplugin/version.txt")
-    if file == nil then
-        self.version = "unknown"
-        return
-    end
-    self.version = file:read()
-    file:close()
 end
 
 function ZLibraryBrowser:checkSettingsSanity()
@@ -706,7 +695,7 @@ function ZLibraryBrowser:onConfig()
             },
             {
                 {
-                    text = T(_("Update (current version: %1)"), self.version),
+                    text = _("Update"),
                     callback = function()
                         UIManager:close(dialog)
                         self:update()
@@ -826,10 +815,8 @@ function ZLibraryBrowser:update()
         sink = ltn12.sink.file(file)
     }
     io.popen("unzip -oj plugins/zlibrary.koplugin/update.zip -d plugins/zlibrary.koplugin/")
-    local oldversion = self.version
-    self:getVersion()
     UIManager:show(InfoMessage:new {
-        text = T(_("Updated from %1 to %2. Please restart KOReader."), oldversion, self.version)
+        text = _("Updated. Restart KOReader for changes to apply.")
     })
 end
 

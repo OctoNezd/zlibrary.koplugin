@@ -1,4 +1,0 @@
-#!/bin/sh
-
-git show --summary --oneline >version.txt
-git add version.txt
