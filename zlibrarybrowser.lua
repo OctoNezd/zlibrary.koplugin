@@ -132,10 +132,7 @@ function ZLibraryBrowser:loginFlow()
                 {
                     text = _("Cancel"),
                     callback = function()
-                        UIManager:show(InfoMessage:new {
-                            text = _("You chose not to log in. You will have limited functionality and only 5 downloads per day."),
-                            UIManager:close(dialog)
-                        })
+                        UIManager:close(dialog)
                     end
                 },
                 {
@@ -246,7 +243,7 @@ function ZLibraryBrowser:indexPage()
     self.page_count = 1
     self:switchItemTable("Z-Library", item_table)
     if (self.profile) then
-        self.page_info_text:setText(T(_("%1/%2 DLs remaining"),
+        self.page_info_text:setText(T(_("%1/%2 DLs used"),
             self.profile.user.downloads_today,
             self.profile.user.downloads_limit))
         self.page_info_left_chev:hide()
@@ -651,6 +648,7 @@ function ZLibraryBrowser:onDownload(bookid)
     UIManager:show(InfoMessage:new {
         text = "Downloaded to " .. filepath .. " successfully!"
     })
+    self:loadProfileData()
 end
 
 function ZLibraryBrowser:onConfig()
