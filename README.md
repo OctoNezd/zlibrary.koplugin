@@ -12,4 +12,4 @@ KOReader plugin to download books from z-library
 
 To make sure updates will have version info, run this to automatically add version.txt:
 
-`git config --local core.hooksPath .hooks`
+`git config --local core.hooksPath .hooks/`

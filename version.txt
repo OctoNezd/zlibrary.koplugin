@@ -1,2 +1,1 @@
-385a0f8 Add hooks
- create mode 100755 .hooks/pre-commit
+fcb4a60 Close version file
