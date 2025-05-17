@@ -1,5 +1,9 @@
 # zlibrary.koplugin
 
+<p align="center">
+    <img src="demo.gif" width="60%" />
+</p>
+
 KOReader plugin to download books from z-library
 
 ## Setting up
