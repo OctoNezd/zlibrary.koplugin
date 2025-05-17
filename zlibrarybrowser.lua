@@ -38,6 +38,16 @@ function ZLibraryBrowser:init()
     Menu.init(self)
     self:checkSettingsSanity()
     self:indexPage()
+    self:getVersion()
+end
+
+function ZLibraryBrowser:getVersion()
+    local file = io.open("plugins/zlibrary.koplugin/version.txt")
+    if file == nil then
+        self.version = "unknown"
+        return
+    end
+    self.version = file:read()
 end
 
 function ZLibraryBrowser:checkSettingsSanity()
@@ -695,6 +705,15 @@ function ZLibraryBrowser:onConfig()
             },
             {
                 {
+                    text = T(_("Update (current version: %1)"), self.version),
+                    callback = function()
+                        UIManager:close(dialog)
+                        self:update()
+                    end
+                }
+            },
+            {
+                {
                     text = _("Close"),
                     callback = function()
                         UIManager:close(dialog)
@@ -789,6 +808,28 @@ function ZLibraryBrowser:onExtensionChange(extension)
     self.settings.extension = extension
     self:saveSettings()
     self:onReturn()
+end
+
+function ZLibraryBrowser:update()
+    local filepath = "plugins/zlibrary.koplugin/update.zip"
+    local file = io.open(filepath, 'w')
+    if file == nil then
+        UIManager:show(InfoMessage:new {
+            text = _("Failed to open file ") .. filepath
+        })
+        return
+    end
+    http.request {
+        method = "GET",
+        url = "https://github.com/OctoNezd/zlibrary.koplugin/archive/refs/heads/main.zip",
+        sink = ltn12.sink.file(file)
+    }
+    io.popen("unzip -oj plugins/zlibrary.koplugin/update.zip -d plugins/zlibrary.koplugin/")
+    local oldversion = self.version
+    self:getVersion()
+    UIManager:show(InfoMessage:new {
+        text = T(_("Updated from %1 to %2. Please restart KOReader."), oldversion, self.version)
+    })
 end
 
 return ZLibraryBrowser
