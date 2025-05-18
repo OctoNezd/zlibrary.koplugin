@@ -31,6 +31,8 @@ require("routes.search")
 require("routes.search_history")
 require("routes.similar")
 require("routes.index")
+require("functions.update")
+require("functions.save")
 function ZLibraryBrowser:init()
     self.catalog_title = "Z-Library"
     self.headers = {
@@ -84,6 +86,9 @@ end
 
 function ZLibraryBrowser:loadProfileData()
     self.profile = self:request("/eapi/user/profile", "GET", "", true)
+    if self.profile then
+        self:loadSavedBooks()
+    end
 end
 
 function ZLibraryBrowser:login(endpoint, login, password, remember_me)
@@ -188,7 +193,6 @@ function ZLibraryBrowser:onReturn()
         self:onMenuSelect({ action = path.action })
     else
         self:indexPage()
-        -- Menu.init(self)
     end
     return true
 end
@@ -248,6 +252,12 @@ function ZLibraryBrowser:convertToItemTable(books)
 end
 
 function ZLibraryBrowser:handlePaged(res, page, title)
+    if (#res.books) == 0 then
+        UIManager:show(InfoMessage:new {
+            text = _("Nothing found!")
+        })
+        return
+    end
     self.page_count = res.pagination.total_pages
     self.page = page
     self.catalog_title = title

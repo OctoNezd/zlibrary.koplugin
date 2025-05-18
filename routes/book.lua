@@ -20,7 +20,14 @@ function ZLibraryBrowser:onBook(bookid)
     if (not res) then return end
     res = res.book
     local frame_bordersize = Size.border.window
-    local frame
+    local book_dialog
+    local is_saved = self.saved_books[misc.split(bookid, "/")[1]]
+    local save_button_text = _("Save")
+    local save_button_func = self.saveBook
+    if is_saved then
+        save_button_text = _("Unsave")
+        save_button_func = self.unSaveBook
+    end
     local button_table = ButtonTable:new {
         width = self.width,
         buttons = {
@@ -34,9 +41,20 @@ function ZLibraryBrowser:onBook(bookid)
             },
             {
                 {
+                    text = save_button_text,
+                    callback = function()
+                        save_button_func(self, misc.split(bookid, "/")[1])
+                        self:loadSavedBooks()
+                        self:onBook(bookid)
+                        UIManager:close(book_dialog)
+                    end
+                }
+            },
+            {
+                {
                     text = _("Similar"),
                     callback = function()
-                        UIManager:close(frame)
+                        UIManager:close(book_dialog)
                         self:updateItems(1, true)
                         self:onMenuSelect({ action = "similar_" .. bookid })
                     end
@@ -46,7 +64,7 @@ function ZLibraryBrowser:onBook(bookid)
                 {
                     text = _("Close"),
                     callback = function()
-                        UIManager:close(frame)
+                        UIManager:close(book_dialog)
                         -- restore our previous action
                         self.last_action = self.previous_action
                         self:updateItems(1, true)
@@ -100,7 +118,7 @@ function ZLibraryBrowser:onBook(bookid)
         height = self.height - button_table:getSize().h,
         dialog = self
     }
-    frame = FrameContainer:new {
+    book_dialog = FrameContainer:new {
         radius = Size.radius.window,
         bordersize = frame_bordersize,
         padding = 0,
@@ -125,5 +143,5 @@ function ZLibraryBrowser:onBook(bookid)
             }
         }
     }
-    UIManager:nextTick(function() UIManager:show(frame) end)
+    UIManager:nextTick(function() UIManager:show(book_dialog) end)
 end
