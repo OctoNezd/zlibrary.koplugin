@@ -13,7 +13,9 @@ local ScrollHtmlWidget = require("ui/widget/scrollhtmlwidget")
 local T = require("ffi/util").template
 local Blitbuffer = require("ffi/blitbuffer")
 local base64 = require("base64")
-local ZLibraryBrowser = Menu:extend {}
+local ZLibraryBrowser = Menu:extend {
+    title_bar_left_icon = "align.left"
+}
 local Size = require("ui/size")
 local FrameContainer = require("ui/widget/container/framecontainer")
 local VerticalGroup = require("ui/widget/verticalgroup")
@@ -49,6 +51,9 @@ function ZLibraryBrowser:checkSettingsSanity()
     end
     if self.settings.extension == nil then
         self.settings.extension = "all"
+    end
+    if self.settings.order == nil then
+        self.settings.order = "popular"
     end
     if self.settings.endpoint == nil then
         self.profile = false
@@ -114,7 +119,7 @@ function ZLibraryBrowser:loginFlow()
     local dialog, remember_me
     local fields = {
         {
-            hint = "Z-Library instance (starting with https://, WITHOUT /)"
+            hint = "Z-Library instance (starting with https://, WITHOUT / AT THE END)"
         },
         {
             hint = "Login"
@@ -422,7 +427,8 @@ function ZLibraryBrowser:onSearch(query, page)
     query = {
         message = query,
         limit = self.perpage,
-        page = page
+        page = page,
+        order = self.settings.order
     }
     if self.settings.language ~= "all" then
         query["languages[]"] = self.settings.language
@@ -438,7 +444,8 @@ end
 function ZLibraryBrowser:onDownloaded(page)
     local res = self:request("/eapi/user/book/downloaded?" .. urlencode.table({
         limit = self.perpage,
-        page = page
+        page = page,
+        order = self.settings.order
     }), "GET", '')
     if (not res) then return end
     self:handlePaged(res, page, _("Downloaded"))
@@ -447,7 +454,8 @@ end
 function ZLibraryBrowser:onSaved(page)
     local res = self:request("/eapi/user/book/saved?" .. urlencode.table({
         limit = self.perpage,
-        page = page
+        page = page,
+        order = self.settings.order
     }))
     if (not res) then return end
     self:handlePaged(res, page, _("Saved"))
@@ -492,7 +500,7 @@ function ZLibraryBrowser:onGotoPage(page)
         self:onSearch(misc.split(self.last_action, "_")[2], page)
         return true
     elseif self.last_action == "downloaded" then
-        self:onDownload(page)
+        self:onDownloaded(page)
         return true
     elseif self.last_action == "saved" then
         self:onSaved(page)
@@ -818,6 +826,50 @@ function ZLibraryBrowser:update()
     UIManager:show(InfoMessage:new {
         text = _("Updated. Restart KOReader for changes to apply.")
     })
+end
+
+local ORDERABLES = {
+    "search_", "saved_", "downloaded"
+}
+
+local ORDERS = {
+    { key = "popular",   text = _("Popular") },
+    { key = "bestmatch", text = _("Best match") },
+    { key = "date",      text = _("Recently added") },
+    { key = "titleA",    text = _("A to Z") },
+    { key = "title",     text = _("Z to A") },
+    { key = "year",      text = _("Year") },
+    { key = "filesize",  text = _("From biggest to smallest") },
+    { key = "filesizeA", text = _("From smallest to biggest") }
+}
+
+
+function ZLibraryBrowser:onLeftButtonTap()
+    local dialog
+    local buttons = {}
+    for _, item in pairs(ORDERS) do
+        local ordertext = item.text
+        local orderkey = item.key
+        table.insert(buttons, { {
+            text = ordertext,
+            callback = function()
+                self.settings.order = orderkey
+                self:saveSettings()
+                UIManager:close(dialog)
+                for _, orderable in pairs(ORDERABLES) do
+                    if misc.startswith(self.last_action, orderable) then
+                        logger.info("We are in orderable, refreshing")
+                        self:onGotoPage(1)
+                    end
+                end
+            end
+        } })
+    end
+    dialog = ButtonDialog:new {
+        title = "Sort by...",
+        buttons = buttons
+    }
+    UIManager:show(dialog)
 end
 
 return ZLibraryBrowser
