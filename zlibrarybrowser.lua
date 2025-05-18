@@ -2,36 +2,40 @@ local Menu = require("ui/widget/menu")
 local _ = require("gettext")
 local InfoMessage = require("ui/widget/infomessage")
 local UIManager = require("ui/uimanager")
-local InputDialog = require("ui/widget/inputdialog")
 local http = require("socket/http")
 local ltn12 = require("ltn12")
 local urlencode = require("urlencode")
 local json = require("json")
 local misc = require("misc")
 local logger = require("logger")
-local ScrollHtmlWidget = require("ui/widget/scrollhtmlwidget")
 local T = require("ffi/util").template
-local Blitbuffer = require("ffi/blitbuffer")
-local base64 = require("base64")
-local ZLibraryBrowser = Menu:extend {
+
+local Device = require("device")
+local Screen = Device.screen
+ZLibraryBrowser = Menu:extend {
     title_bar_left_icon = "align.left"
 }
-local Size = require("ui/size")
-local FrameContainer = require("ui/widget/container/framecontainer")
-local VerticalGroup = require("ui/widget/verticalgroup")
-local CenterContainer = require("ui/widget/container/centercontainer")
-local Geom = require("ui/geometry")
-local ButtonTable = require("ui/widget/buttontable")
-local MultiInputDialog = require("ui/widget/multiinputdialog")
-local CheckButton = require("ui/widget/CheckButton")
-local ButtonDialog = require("ui.widget.buttondialog")
-local Device = require("device")
-local util = require("util")
-local Screen = Device.screen
+require("menus.extensions")
+require("menus.languages")
+require("dialogs.config")
+require("dialogs.sorting")
+require("dialogs.download_dir")
+require("dialogs.login")
+require("dialogs.search")
+require("routes.book")
+require("routes.downloaded")
+require("routes.popular")
+require("routes.recommended")
+require("routes.saved")
+require("routes.search")
+require("routes.search_history")
+require("routes.similar")
+require("routes.index")
 function ZLibraryBrowser:init()
     self.catalog_title = "Z-Library"
     self.headers = {
         ['Content-Type'] = 'application/x-www-form-urlencoded',
+        ['User-Agent'] = 'octonezd.zlibrary.koplugin/1.0'
     }
     self:loadSettings()
     self.last_action = ""
@@ -62,7 +66,15 @@ function ZLibraryBrowser:checkSettingsSanity()
     end
     if (self.profile == false) then
         logger.err("Error on /user/profile: Starting login flow")
-        UIManager:nextTick(function() self:loginFlow() end)
+        UIManager:nextTick(function()
+            self:loginFlow(function()
+                if (self.settings.download_dir == nil) then
+                    logger.err("no download dir set")
+                    UIManager:nextTick(function() self:downloadDirFlow() end)
+                end
+            end)
+        end)
+        return
     end
     if (self.settings.download_dir == nil) then
         logger.err("no download dir set")
@@ -72,96 +84,6 @@ end
 
 function ZLibraryBrowser:loadProfileData()
     self.profile = self:request("/eapi/user/profile", "GET", "", true)
-end
-
-function ZLibraryBrowser:downloadDirFlow()
-    local dialog
-    local suggested_dir = ""
-    if Device:isKindle() then
-        suggested_dir = "/mnt/us/books"
-    end
-    dialog = InputDialog:new {
-        title = _("You dont have download directory set."),
-        input = suggested_dir,
-        input_hint = _("E.g. /Users/octo/books"),
-        buttons = {
-            {
-                {
-                    text = _("Set"),
-                    id = "set",
-                    is_enter_default = true,
-                    callback = function()
-                        local path = dialog:getInputText()
-                        self.settings.download_dir = path
-                        self:saveSettings()
-                        logger.info(util.makePath(path))
-                        UIManager:close(dialog)
-                    end
-                }
-            }
-        }
-    }
-    UIManager:show(dialog)
-    dialog:onShowKeyboard()
-end
-
-function ZLibraryBrowser:loginFlow()
-    local remembered_login = self.settings.login and self.settings.login or ""
-    if remembered_login ~= "" then
-        logger.info("trying to log in with remembered log/pass")
-        if self:login(self.settings.endpoint, self.settings.login, self.settings.password) then
-            return
-        end
-        logger.err("failed to log in with remembered password")
-    else
-        logger.info("no saved log/pass")
-    end
-    local dialog, remember_me
-    local fields = {
-        {
-            hint = "Z-Library instance (starting with https://, WITHOUT / AT THE END)"
-        },
-        {
-            hint = "Login"
-        },
-        {
-            hint = "Password",
-            text_type = "password"
-        }
-    }
-    dialog = MultiInputDialog:new {
-        fields = fields,
-        title = _("Please log in"),
-        buttons = {
-            {
-                {
-                    text = _("Cancel"),
-                    callback = function()
-                        UIManager:close(dialog)
-                    end
-                },
-                {
-                    text = _("Login"),
-                    callback = function()
-                        local fields = dialog:getFields()
-                        local endpoint = fields[1]
-                        local login = fields[2]
-                        local password = fields[3]
-                        if self:login(endpoint, login, password, remember_me.checked) then
-                            UIManager:close(dialog)
-                        end
-                    end
-                }
-            }
-        }
-    }
-    remember_me = CheckButton:new {
-        text = _("Remember me"),
-        parent = dialog,
-        checked = true,
-    }
-    dialog:addWidget(remember_me)
-    UIManager:nextTick(function() UIManager:show(dialog) end)
 end
 
 function ZLibraryBrowser:login(endpoint, login, password, remember_me)
@@ -212,85 +134,6 @@ function ZLibraryBrowser:saveSettings()
     file:write(json.encode(self.settings))
     file:close()
     self:setupHeaders()
-end
-
-function ZLibraryBrowser:indexPage()
-    local item_table = {
-        {
-            text = "\u{f002} " .. _("Search"),
-            action = "search"
-        },
-        {
-            text = "\u{f1da} " .. _("Search history"),
-            action = "searchhistory"
-        },
-        {
-            text = "\u{e8c8} " .. _("Recommended"),
-            action = "recommended"
-        },
-        {
-            text = "\u{e7b9} " .. _("Saved"),
-            action = "saved"
-        },
-        {
-            text = "\u{eb62} " .. _("Popular"),
-            action = "popular"
-        },
-        {
-            text = "\u{e8d9}" .. _("Previously downloaded"),
-            action = "downloaded"
-        },
-        {
-            text = "\u{eb92} " .. _("Configuration"),
-            action = "config"
-        }
-    }
-    self.page_count = 1
-    self:switchItemTable("Z-Library", item_table)
-    if (self.profile) then
-        self.page_info_text:setText(T(_("%1/%2 DLs used"),
-            self.profile.user.downloads_today,
-            self.profile.user.downloads_limit))
-        self.page_info_left_chev:hide()
-        self.page_info_right_chev:hide()
-        self.page_info_first_chev:hide()
-        self.page_info_last_chev:hide()
-    end
-    return item_table
-end
-
-function ZLibraryBrowser:onSearchMenuItem()
-    local dialog
-    dialog = InputDialog:new {
-        title = _("Search Z-Library"),
-        input_hint = _("Do Androids Dream of Electric Sheep?"),
-        buttons = {
-            {
-                {
-                    text = _("Cancel"),
-                    id = "close",
-                    callback = function()
-                        UIManager:close(dialog)
-                    end,
-                },
-                {
-                    text = _("Search"),
-                    id = "search",
-                    is_enter_default = true,
-                    callback = function()
-                        local query = dialog:getInputText()
-                        logger.info("Searching for", query)
-                        UIManager:close(dialog)
-                        self:onMenuSelect({
-                            action = "search_" .. query
-                        })
-                    end
-                }
-            }
-        }
-    }
-    UIManager:show(dialog)
-    dialog:onShowKeyboard()
 end
 
 function ZLibraryBrowser:onMenuSelect(item)
@@ -352,6 +195,7 @@ end
 
 function ZLibraryBrowser:request(path, method, query, suppress_error)
     local body = ""
+    logger.info("Request:", path)
     if method == "POST" then
         body = urlencode.table(query)
     end
@@ -421,73 +265,6 @@ function ZLibraryBrowser:handlePaged(res, page, title)
     end
 end
 
-function ZLibraryBrowser:onSearch(query, page)
-    table.insert(self.settings.history, 0, query)
-    self:saveSettings()
-    query = {
-        message = query,
-        limit = self.perpage,
-        page = page,
-        order = self.settings.order
-    }
-    if self.settings.language ~= "all" then
-        query["languages[]"] = self.settings.language
-    end
-    if self.settings.extension ~= "all" then
-        query["extensions[]"] = self.settings.extension
-    end
-    local res = self:request("/eapi/book/search", "POST", query)
-    if (not res) then return end
-    self:handlePaged(res, page, _("Search Results"))
-end
-
-function ZLibraryBrowser:onDownloaded(page)
-    local res = self:request("/eapi/user/book/downloaded?" .. urlencode.table({
-        limit = self.perpage,
-        page = page,
-        order = self.settings.order
-    }), "GET", '')
-    if (not res) then return end
-    self:handlePaged(res, page, _("Downloaded"))
-end
-
-function ZLibraryBrowser:onSaved(page)
-    local res = self:request("/eapi/user/book/saved?" .. urlencode.table({
-        limit = self.perpage,
-        page = page,
-        order = self.settings.order
-    }))
-    if (not res) then return end
-    self:handlePaged(res, page, _("Saved"))
-end
-
-function ZLibraryBrowser:onRecommended()
-    local res = self:request("/eapi/user/book/recommended")
-    if (not res) then return end
-    table.insert(self.paths, {
-        title = _("Recommended")
-    })
-    self:switchItemTable(_("Recommended"), self:convertToItemTable(res.books))
-end
-
-function ZLibraryBrowser:onPopular()
-    local res = self:request("/eapi/book/most-popular")
-    if (not res) then return end
-    table.insert(self.paths, {
-        title = _("Popular")
-    })
-    self:switchItemTable(_("Popular"), self:convertToItemTable(res.books))
-end
-
-function ZLibraryBrowser:onSimilar(bookid)
-    local res = self:request("/eapi/book/" .. bookid .. "/similar")
-    if (not res) then return end
-    table.insert(self.paths, {
-        title = _("Similar")
-    })
-    self:switchItemTable(_("Similar"), self:convertToItemTable(res.books))
-end
-
 function ZLibraryBrowser:getPageNumber(item_number)
     if misc.startswith(self.last_action, "search_") then
         return self.page_count
@@ -507,119 +284,6 @@ function ZLibraryBrowser:onGotoPage(page)
         return true
     end
     return Menu.onGotoPage(self, page)
-end
-
-function ZLibraryBrowser:onBook(bookid)
-    local res = self:request("/eapi/book/" .. bookid)
-    if (not res) then return end
-    res = res.book
-    local frame_bordersize = Size.border.window
-    local frame
-    local button_table = ButtonTable:new {
-        width = self.width,
-        buttons = {
-            {
-                {
-                    text = _("Download") .. " (" .. res.extension .. ", " .. res.filesizeString .. ")",
-                    callback = function()
-                        self:onDownload(bookid)
-                    end
-                }
-            },
-            {
-                {
-                    text = _("Similar"),
-                    callback = function()
-                        UIManager:close(frame)
-                        self:updateItems(1, true)
-                        self:onMenuSelect({ action = "similar_" .. bookid })
-                    end
-                }
-            },
-            {
-                {
-                    text = _("Close"),
-                    callback = function()
-                        UIManager:close(frame)
-                        -- restore our previous action
-                        self.last_action = self.previous_action
-                        self:updateItems(1, true)
-                    end
-                }
-            }
-        },
-        zero_sep = true,
-        show_parent = self,
-    }
-    local cover_tbl = {}
-    local message = InfoMessage:new {
-        text = "Loading cover art..."
-    }
-    UIManager:show(message)
-    local ret, status, headers = http.request {
-        url = res.cover,
-        headers = self.headers,
-        method = "GET",
-        sink = ltn12.sink.table(cover_tbl)
-    }
-    local cover
-    if status ~= 200 then
-        logger.err("Failed to get cover art!" .. status)
-        cover = _("Failed to load cover<br/>")
-    else
-        cover = base64.encode(table.concat(cover_tbl))
-        cover = '<div class="cover"><img src="data:image/jpeg;base64,' ..
-            cover .. '" style="width: 300px"/></div><br/>'
-    end
-    local comments = "Failed to load comments"
-    local comments_data = self:request("/papi/comments/book/" .. misc.split(bookid, "/")[1], "GET", "", true)
-    if comments_data then
-        comments = ""
-        for _, comment in pairs(comments_data.comments) do
-            comments = comments .. T("<br><i>%1: </i>%2", comment.user.name, comment.text)
-        end
-    end
-
-    UIManager:close(message)
-    if type(res.publisher) == "function" then
-        res.publisher = _("Unknown publisher")
-    end
-    local textview = ScrollHtmlWidget:new {
-        html_body = cover .. T(
-            _("%1 by %2 (Published by %3)<br/>%4<br/><b>Comments:</b><br/>%5"),
-            res.title, res.author, res.publisher, res.description, comments
-        ),
-        css = "img {text-align: center} .cover { text-align: center }",
-        width = self.width,
-        height = self.height - button_table:getSize().h,
-        dialog = self
-    }
-    frame = FrameContainer:new {
-        radius = Size.radius.window,
-        bordersize = frame_bordersize,
-        padding = 0,
-        margin = 0,
-        background = Blitbuffer.COLOR_WHITE,
-        VerticalGroup:new {
-            align = "left",
-            CenterContainer:new {
-                dimen = Geom:new {
-                    w = self.width,
-                    h = textview:getSize().h,
-                },
-                textview,
-            },
-            -- buttons
-            CenterContainer:new {
-                dimen = Geom:new {
-                    w = self.width,
-                    h = button_table:getSize().h,
-                },
-                button_table,
-            }
-        }
-    }
-    UIManager:nextTick(function() UIManager:show(frame) end)
 end
 
 function ZLibraryBrowser:onDownload(bookid)
@@ -657,219 +321,6 @@ function ZLibraryBrowser:onDownload(bookid)
         text = "Downloaded to " .. filepath .. " successfully!"
     })
     self:loadProfileData()
-end
-
-function ZLibraryBrowser:onConfig()
-    local dialog
-    dialog = ButtonDialog:new {
-        title = "Config",
-        buttons = {
-            {
-                {
-                    text = _("Set download dir"),
-                    callback = function() self:downloadDirFlow() end
-                }
-            },
-            {
-                {
-                    text = _("Logout"),
-                    callback = function()
-                        self.settings.login = nil
-                        self.settings.password = nil
-                        self.settings.userid = nil
-                        self.settings.userkey = nil
-                        self:saveSettings()
-                        self:loginFlow()
-                    end
-                }
-            },
-            {
-                {
-                    text = _("Languages"),
-                    callback = function()
-                        UIManager:close(dialog)
-                        self:onLanguagePicker()
-                    end
-                }
-            },
-            {
-                {
-                    text = _("Extensions"),
-                    callback = function()
-                        UIManager:close(dialog)
-                        self:onExtensionPicker()
-                    end
-                }
-            },
-            {
-                {
-                    text = _("Update"),
-                    callback = function()
-                        UIManager:close(dialog)
-                        self:update()
-                    end
-                }
-            },
-            {
-                {
-                    text = _("Close"),
-                    callback = function()
-                        UIManager:close(dialog)
-                    end
-                }
-            }
-        }
-    }
-    UIManager:show(dialog)
-end
-
-function ZLibraryBrowser:onSearchHistory()
-    local items = {}
-    table.insert(self.paths, {
-        title = _("Search history"),
-        action = "searchhistory"
-    })
-    for _, item in pairs(self.settings.history) do
-        table.insert(items, {
-            text = item,
-            action = "search_" .. item
-        })
-    end
-    self:switchItemTable(_("Search history"), items)
-end
-
-function ZLibraryBrowser:onLanguagePicker()
-    local languages = self:request("/eapi/info/languages")
-    if not languages then return end
-    local indicator_on = "◉"
-    local indicator_off = "◯"
-    local all_active = indicator_off
-    if self.settings.language == "all" then
-        all_active = indicator_on
-    end
-
-    local items = {
-        {
-            text = all_active .. _("All"),
-            action = "setlang_all"
-        }
-    }
-    for code, language in pairs(languages.languages) do
-        local active = indicator_off
-        if code == self.settings.language then
-            active = indicator_on
-        end
-        table.insert(items, {
-            text = active .. language,
-            action = "setlang_" .. code
-        })
-    end
-    self:switchItemTable(_("Languages"), items)
-end
-
-function ZLibraryBrowser:onLangChange(lang)
-    self.settings.language = lang
-    self:saveSettings()
-    self:onReturn()
-end
-
-function ZLibraryBrowser:onExtensionPicker()
-    local extensions = self:request("/eapi/info/extensions")
-    if not extensions then return end
-    local indicator_on = "◉"
-    local indicator_off = "◯"
-    local all_active = indicator_off
-    if self.settings.extension == "all" then
-        all_active = indicator_on
-    end
-
-    local items = {
-        {
-            text = all_active .. _("All"),
-            action = "setext_all"
-        }
-    }
-    for _, extension in pairs(extensions.extensions) do
-        local active = indicator_off
-        if extension == self.settings.extension then
-            active = indicator_on
-        end
-        table.insert(items, {
-            text = active .. extension,
-            action = "setext_" .. extension
-        })
-    end
-    self:switchItemTable(_("Extensions"), items)
-end
-
-function ZLibraryBrowser:onExtensionChange(extension)
-    self.settings.extension = extension
-    self:saveSettings()
-    self:onReturn()
-end
-
-function ZLibraryBrowser:update()
-    local filepath = "plugins/zlibrary.koplugin/update.zip"
-    local file = io.open(filepath, 'w')
-    if file == nil then
-        UIManager:show(InfoMessage:new {
-            text = _("Failed to open file ") .. filepath
-        })
-        return
-    end
-    http.request {
-        method = "GET",
-        url = "https://github.com/OctoNezd/zlibrary.koplugin/archive/refs/heads/main.zip",
-        sink = ltn12.sink.file(file)
-    }
-    io.popen("unzip -oj plugins/zlibrary.koplugin/update.zip -d plugins/zlibrary.koplugin/")
-    UIManager:show(InfoMessage:new {
-        text = _("Updated. Restart KOReader for changes to apply.")
-    })
-end
-
-local ORDERABLES = {
-    "search_", "saved_", "downloaded"
-}
-
-local ORDERS = {
-    { key = "popular",   text = _("Popular") },
-    { key = "bestmatch", text = _("Best match") },
-    { key = "date",      text = _("Recently added") },
-    { key = "titleA",    text = _("A to Z") },
-    { key = "title",     text = _("Z to A") },
-    { key = "year",      text = _("Year") },
-    { key = "filesize",  text = _("From biggest to smallest") },
-    { key = "filesizeA", text = _("From smallest to biggest") }
-}
-
-
-function ZLibraryBrowser:onLeftButtonTap()
-    local dialog
-    local buttons = {}
-    for _, item in pairs(ORDERS) do
-        local ordertext = item.text
-        local orderkey = item.key
-        table.insert(buttons, { {
-            text = ordertext,
-            callback = function()
-                self.settings.order = orderkey
-                self:saveSettings()
-                UIManager:close(dialog)
-                for _, orderable in pairs(ORDERABLES) do
-                    if misc.startswith(self.last_action, orderable) then
-                        logger.info("We are in orderable, refreshing")
-                        self:onGotoPage(1)
-                    end
-                end
-            end
-        } })
-    end
-    dialog = ButtonDialog:new {
-        title = "Sort by...",
-        buttons = buttons
-    }
-    UIManager:show(dialog)
 end
 
 return ZLibraryBrowser
