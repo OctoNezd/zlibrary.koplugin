@@ -1,11 +1,13 @@
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local UIManager = require("ui/uimanager")
+local InfoMessage = require("ui.widget.infomessage")
 
 local _ = require("gettext")
 local ZLibrary = WidgetContainer:new {
     name = 'zlibrary',
 }
 local zlibrarybrowser = require("zlibrarybrowser")
+local NetworkMgr = require("ui/network/manager")
 
 
 function ZLibrary:init()
@@ -24,7 +26,7 @@ function ZLibrary:addToMainMenu(menu_items)
     end
 end
 
-function ZLibrary:onShowZLibrary()
+function ZLibrary:openZLibMenu()
     self.destinationselector = zlibrarybrowser:new {
         title = "Z-Library",
         is_popout = false,
@@ -33,6 +35,16 @@ function ZLibrary:onShowZLibrary()
         multilines_show_more_text = true
     }
     UIManager:show(self.destinationselector)
+end
+
+function ZLibrary:onShowZLibrary()
+    if not NetworkMgr:isOnline() then
+        NetworkMgr:turnOnWifiAndWaitForConnection(function()
+            UIManager:scheduleIn(2, function() self:openZLibMenu() end)
+        end)
+        return
+    end
+    self:openZLibMenu()
 end
 
 return ZLibrary
