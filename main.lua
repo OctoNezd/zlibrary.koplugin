@@ -1,6 +1,5 @@
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local UIManager = require("ui/uimanager")
-local InfoMessage = require("ui.widget.infomessage")
 
 local _ = require("gettext")
 local ZLibrary = WidgetContainer:new {

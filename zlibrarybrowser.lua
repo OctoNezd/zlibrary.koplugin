@@ -208,9 +208,17 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
         body = urlencode.table(query)
     end
     local response_tbl = {}
+    local url = path
+    local headers = {
+        ["User-Agent"] = "octonezd.zlibrary.koplugin/1.0"
+    }
+    if (not misc.startswith(url, "http")) then
+        url = self.settings.endpoint .. path
+        headers = self.headers
+    end
     local ret, status, headers = http.request {
-        url = self.settings.endpoint .. path,
-        headers = self.headers,
+        url = url,
+        headers = headers,
         method = method,
         source = ltn12.source.string(body),
         sink = ltn12.sink.table(response_tbl)
@@ -227,6 +235,10 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
         return false
     end
     local res = json.decode(response)
+    if (misc.startswith(url, "http")) then
+        return res
+    end
+
     if res.success ~= 1 then
         logger.err("Request failed!")
         logger.err(res)
