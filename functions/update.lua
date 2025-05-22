@@ -13,7 +13,7 @@ function ZLibraryBrowser:update()
         return
     end
 
-    local filepath = "plugins/zlibrary.koplugin/update.zip"
+    local filepath = ZL_PATH .. "/update.zip"
     local file = io.open(filepath, 'w')
     if file == nil then
         UIManager:show(InfoMessage:new {
@@ -27,7 +27,7 @@ function ZLibraryBrowser:update()
         sink = ltn12.sink.file(file)
     }
     local retcode = os.execute(
-        "unzip -o plugins/zlibrary.koplugin/update.zip -d plugins/zlibrary.koplugin/update.tmp")
+        "unzip -o " .. ZL_PATH .. "/update.zip -d" .. ZL_PATH .. "/update.tmp")
     if (retcode ~= 0) then
         UIManager:show(InfoMessage:new {
             text = _("Failed to unzip update, exit code ") .. retcode
@@ -35,14 +35,14 @@ function ZLibraryBrowser:update()
         return
     end
     retcode = os.execute(
-        "cp -rvf plugins/zlibrary.koplugin/update.tmp/* plugins/zlibrary.koplugin")
+        "cp -rvf " .. ZL_PATH .. "/update.tmp/* " .. ZL_PATH .. "")
     if (retcode ~= 0) then
         UIManager:show(InfoMessage:new {
             text = _("Failed to move update files")
         })
         return
     end
-    os.execute("rm -rvf plugins/zlibrary.koplugin/update.tmp")
+    os.execute("rm -rvf " .. ZL_PATH .. "/update.tmp")
 
     UIManager:show(InfoMessage:new {
         text = _("Updated. Restart KOReader for changes to apply.")
