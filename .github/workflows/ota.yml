@@ -25,3 +25,13 @@ jobs:
         name: zlibrary.koplugin # optional, default is artifact
         # A file, directory or wildcard pattern that describes what to upload
         path: .
+    - run: make
+    - name: "Build Changelog"
+      id: build_changelog
+      uses: mikepenz/release-changelog-builder-action@{latest-release}
+      with:
+        outputFile: changelog
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: "zlibrary.koplugin.zip"
+        bodyFile: "changelog"
