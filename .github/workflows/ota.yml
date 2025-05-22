@@ -1,0 +1,25 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - run: make commitdata
+
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        # Artifact name
+        name: zlibrary.koplugin # optional, default is artifact
+        # A file, directory or wildcard pattern that describes what to upload
+        path: .
