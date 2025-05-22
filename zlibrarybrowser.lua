@@ -306,6 +306,12 @@ function ZLibraryBrowser:onDownload(bookid)
     logger.info("Downloading " .. bookid)
     local res = self:request("/eapi/book/" .. bookid .. "/file")
     if (not res) then return end
+    if res.file == nil then
+        UIManager:show(InfoMessage:new {
+            text = _("Limit reached? File is nil")
+        })
+    end
+    res = res.file
     if res.description == nil then
         UIManager:show(InfoMessage:new {
             text = _("Limit reached? Description is nil")
@@ -318,7 +324,6 @@ function ZLibraryBrowser:onDownload(bookid)
         })
         return
     end
-    res = res.file
     local filepath = T("%1/%2_%3.%4",
         self.settings.download_dir,
         string.gsub(res.description, "[<>:\"/\\|?*]", ''),
