@@ -35,6 +35,7 @@ require("functions.update")
 require("functions.save")
 function ZLibraryBrowser:init()
     self.catalog_title = "Z-Library"
+    self.ZL_VERSION = require("zl-version")
     self.headers = {
         ['Content-Type'] = 'application/x-www-form-urlencoded',
         ['User-Agent'] = 'octonezd.zlibrary.koplugin/1.0'
