@@ -1,4 +1,4 @@
-VERSION = $(shell git describe)
+VERSION = $(shell git describe --tag --abbrev=0)
 default: commitdata
 	zip zlibrary.koplugin.zip *.lua dialogs functions menus routes
 
