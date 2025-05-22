@@ -14,4 +14,4 @@ KOReader plugin to download books from z-library
 
 ## Development
 
-Create file zl_dev.lua to enable debug logging and automatic zl-version update
+Set up hook for automatic zl-version update on commit: `git config --local core.hooksPath .hooks/`
