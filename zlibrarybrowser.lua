@@ -268,8 +268,10 @@ function ZLibraryBrowser:handlePaged(res, page, title)
         })
         self:switchItemTable(title, self.book_tbl)
     else
-        for _, v in pairs(self:convertToItemTable(res.books)) do
-            table.insert(self.book_tbl, v)
+        for i, v in pairs(self:convertToItemTable(res.books)) do
+            local position = i + (self.page - 1) * self.perpage
+            logger.info("inserting element at position", position)
+            table.insert(self.book_tbl, position, v)
         end
         self:updateItems(1, true)
     end
