@@ -30,6 +30,7 @@ jobs:
       uses: mikepenz/release-changelog-builder-action@v5
       with:
         outputFile: changelog
+        mode: "COMMIT"
     - uses: ncipollo/release-action@v1
       with:
         artifacts: "zlibrary.koplugin.zip"
