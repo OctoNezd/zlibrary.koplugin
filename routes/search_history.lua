@@ -1,10 +1,10 @@
 local _ = require("gettext")
 local UIManager = require("ui/uimanager")
 local InfoMessage = require("ui/widget/infomessage")
-
+local misc = require("misc")
 function ZLibraryBrowser:onSearchHistory()
     local items = {}
-    if #self.settings.history == 0 then
+    if misc.tablelength(self.settings.history) == 0 then
         UIManager:show(InfoMessage:new {
             text = "No search history!"
         })

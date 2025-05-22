@@ -195,7 +195,17 @@ local function split(str, deliminator, plain, limit)
     out[out_n + 1] = str:sub(pos)
     return out
 end
+
+-- https://stackoverflow.com/questions/2705793/how-to-get-number-of-entries-in-a-lua-table
+local function tablelength(T)
+    local count = 0
+    for _ in pairs(T) do count = count + 1 end
+    return count
+end
+
+
 return {
     startswith = starts,
-    split = split
+    split = split,
+    tablelength = tablelength
 }
