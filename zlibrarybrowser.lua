@@ -33,6 +33,7 @@ require("routes.similar")
 require("routes.index")
 require("functions.update")
 require("functions.save")
+local ds = require("datastorage")
 function ZLibraryBrowser:init()
     self.catalog_title = "Z-Library"
     self.ZL_VERSION = require("zl-version")
@@ -40,6 +41,8 @@ function ZLibraryBrowser:init()
         ['Content-Type'] = 'application/x-www-form-urlencoded',
         ['User-Agent'] = 'octonezd.zlibrary.koplugin/1.0'
     }
+    self.settings_path = ds:getDataDir() .. "/zlibrary.json"
+    logger.info("Settings path is", self.settings_path)
     self:loadSettings()
     self.last_action = ""
     self.width = Screen:getWidth()
@@ -117,7 +120,7 @@ function ZLibraryBrowser:setupHeaders()
 end
 
 function ZLibraryBrowser:loadSettings()
-    local file = io.open("plugins/zlibrary.koplugin/settings.json", 'r')
+    local file = io.open(self.settings_path, 'r')
     if file == nil then
         self.settings = {}
         return
@@ -130,7 +133,7 @@ function ZLibraryBrowser:loadSettings()
 end
 
 function ZLibraryBrowser:saveSettings()
-    local file = io.open("plugins/zlibrary.koplugin/settings.json", 'w')
+    local file = io.open(self.settings_path, 'w')
     if file == nil then
         UIManager:show(InfoMessage:new {
             text = _("Failed to open settings for writing. This should be impossible.")
@@ -303,6 +306,18 @@ function ZLibraryBrowser:onDownload(bookid)
     logger.info("Downloading " .. bookid)
     local res = self:request("/eapi/book/" .. bookid .. "/file")
     if (not res) then return end
+    if res.description == nil then
+        UIManager:show(InfoMessage:new {
+            text = _("Limit reached? Description is nil")
+        })
+        return
+    end
+    if res.extension == nil then
+        UIManager:show(InfoMessage:new {
+            text = _("Limit reached? Extension is nil")
+        })
+        return
+    end
     res = res.file
     local filepath = T("%1/%2_%3.%4",
         self.settings.download_dir,

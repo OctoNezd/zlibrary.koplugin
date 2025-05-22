@@ -1,4 +1,4 @@
 VERSION = $(shell git describe)
 
 commitdata:
-	echo return "$(VERSION)" > version.lua
+	echo return \"$(VERSION)\" > zl-version.lua

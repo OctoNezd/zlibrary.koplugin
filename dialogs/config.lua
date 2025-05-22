@@ -3,7 +3,7 @@ local misc = require("misc")
 local _ = require("gettext")
 local logger = require("logger")
 local ButtonDialog = require("ui/widget/buttondialog")
-
+local T = require("ffi/util").template
 function ZLibraryBrowser:onConfig()
     local dialog
     dialog = ButtonDialog:new {
@@ -48,7 +48,7 @@ function ZLibraryBrowser:onConfig()
             },
             {
                 {
-                    text = _("Update"),
+                    text = T(_("Update (Current: %1)"), self.ZL_VERSION),
                     callback = function()
                         UIManager:close(dialog)
                         self:update()
