@@ -11,7 +11,3 @@ KOReader plugin to download books from z-library
 1. Download this repo as zip, unpack it into KOReader plugin directory
 
 2. Done! Now you can log into Z-Library from Search section in KOReader
-
-## Development
-
-Set up hook for automatic zl-version update on commit: `git config --local core.hooksPath .hooks/`
