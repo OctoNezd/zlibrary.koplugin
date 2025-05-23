@@ -324,6 +324,12 @@ function ZLibraryBrowser:onDownload(bookid)
         })
     end
     res = res.file
+    if res.allowDownload == false then
+        UIManager:show(InfoMessage:new {
+            text = _("Z-Library didnt allow download: ") .. misc.unescape(res.disallowDownloadMessage:gsub("%b<>", ""))
+        })
+        return
+    end
     if res.description == nil then
         UIManager:show(InfoMessage:new {
             text = _("Limit reached? Description is nil")
