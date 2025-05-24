@@ -1,6 +1,8 @@
 local Menu = require("ui/widget/menu")
 local _ = require("gettext")
 local InfoMessage = require("ui/widget/infomessage")
+local ButtonDialog = require("ui/widget/buttondialog")
+local ReaderUI = require("apps/reader/readerui")
 local UIManager = require("ui/uimanager")
 local http = require("socket/http")
 local ltn12 = require("ltn12")
@@ -316,7 +318,7 @@ function ZLibraryBrowser:onGotoPage(page)
     return Menu.onGotoPage(self, page)
 end
 
-function ZLibraryBrowser:onDownload(bookid)
+function ZLibraryBrowser:onDownload(bookid, is_saved)
     logger.info("Downloading " .. bookid)
     local res = self:request("/eapi/book/" .. bookid .. "/file")
     if (not res) then return end
@@ -370,10 +372,47 @@ function ZLibraryBrowser:onDownload(bookid)
         return
     end
     UIManager:close(self.book_dlg)
-    UIManager:show(InfoMessage:new {
-        text = "Downloaded to " .. filepath .. " successfully!"
-    })
+    self:showBookDownloadedDialog(bookid, filepath, is_saved)
     self:loadProfileData()
+end
+
+function ZLibraryBrowser:showBookDownloadedDialog(bookid, filepath, is_saved)
+    local dialog
+    local buttons = {
+        {
+            {
+                text = _("Open"),
+                callback = function()
+                    UIManager.close(dialog)
+                    ReaderUI:doShowReader(filepath)
+                end
+            }
+        }
+    }
+    if (is_saved) then
+        table.insert(buttons,
+            {
+                {
+                    text = _("Unsave"),
+                    callback = function()
+                        self:unSaveBook(misc.split(bookid, "/")[1])
+                        UIManager:close(dialog)
+                        UIManager:nextTick(function() self:showBookDownloadedDialog(bookid, filepath, false) end)
+                    end
+                }
+            })
+    end
+    table.insert(buttons, {
+        {
+            text = _("Close"),
+            callback = function() UIManager:close(dialog) end
+        }
+    })
+    dialog = ButtonDialog:new {
+        title = "Downloaded to " .. filepath .. " successfully!",
+        buttons = buttons
+    }
+    UIManager:show(dialog)
 end
 
 return ZLibraryBrowser

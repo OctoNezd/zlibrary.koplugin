@@ -35,7 +35,7 @@ function ZLibraryBrowser:onBook(bookid)
                 {
                     text = _("Download") .. " (" .. res.extension .. ", " .. res.filesizeString .. ")",
                     callback = function()
-                        self:onDownload(bookid)
+                        self:onDownload(bookid, is_saved)
                     end
                 }
             },
