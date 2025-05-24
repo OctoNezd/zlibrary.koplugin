@@ -56,8 +56,8 @@ function ZLibraryBrowser:checkSettingsSanity()
     if self.settings.history == nil then
         self.settings.history = {}
     end
-    if self.settings.language == nil then
-        self.settings.language = "all"
+    if self.settings.languages == nil then
+        self.settings.languages = "all"
     end
     if self.settings.extension == nil then
         self.settings.extension = "all"
@@ -203,10 +203,10 @@ end
 
 function ZLibraryBrowser:request(path, method, query, suppress_error)
     local body = ""
-    logger.info("Request:", path)
     if method == "POST" then
         body = urlencode.table(query)
     end
+    logger.info("Request:", path, "Q:", query, "B:", body)
     local response_tbl = {}
     local url = path
     local headers = {
@@ -286,7 +286,6 @@ function ZLibraryBrowser:handlePaged(res, page, title)
     else
         for i, v in pairs(self:convertToItemTable(res.books)) do
             local position = i + (self.page - 1) * self.perpage
-            logger.info("inserting element at position", position)
             table.insert(self.book_tbl, position, v)
         end
         self:updateItems(1, true)

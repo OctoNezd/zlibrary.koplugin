@@ -35,10 +35,16 @@ function urlencode.table(t)
 
     --URL-encode every pair
     for k, v in pairs(t) do
-        argts[i] = encode(k) .. "=" .. encode(v)
-        i = i + 1
+        if type(v) == "table" then
+            for k2 in pairs(v) do
+                argts[i] = encode(k) .. "=" .. encode(k2)
+                i = i + 1
+            end
+        else
+            argts[i] = encode(k) .. "=" .. encode(v)
+            i = i + 1
+        end
     end
-
     return table.concat(argts, '&')
 end
 

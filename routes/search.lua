@@ -8,8 +8,8 @@ function ZLibraryBrowser:onSearch(query, page)
         page = page,
         order = self.settings.order
     }
-    if self.settings.language ~= "all" then
-        query["languages[]"] = self.settings.language
+    if self.settings.languages ~= "all" then
+        query["languages[]"] = self.settings.languages
     end
     if self.settings.extension ~= "all" then
         query["extensions[]"] = self.settings.extension
