@@ -11,8 +11,8 @@ function ZLibraryBrowser:onSearch(query, page)
     if self.settings.languages ~= "all" then
         query["languages[]"] = self.settings.languages
     end
-    if self.settings.extension ~= "all" then
-        query["extensions[]"] = self.settings.extension
+    if self.settings.extensions ~= "all" then
+        query["extensions[]"] = self.settings.extensions
     end
     local res = self:request("/eapi/book/search", "POST", query)
     if (not res) then return end

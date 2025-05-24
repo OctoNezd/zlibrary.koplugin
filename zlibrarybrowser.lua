@@ -48,19 +48,21 @@ function ZLibraryBrowser:init()
     self.width = Screen:getWidth()
     self.height = Screen:getHeight()
     Menu.init(self)
-    self:checkSettingsSanity()
     self:indexPage()
 end
 
 function ZLibraryBrowser:checkSettingsSanity()
+    if self.settings == nil then
+        self.settings = {}
+    end
     if self.settings.history == nil then
         self.settings.history = {}
     end
     if self.settings.languages == nil then
         self.settings.languages = "all"
     end
-    if self.settings.extension == nil then
-        self.settings.extension = "all"
+    if self.settings.extensions == nil then
+        self.settings.extensions = "all"
     end
     if self.settings.order == nil then
         self.settings.order = "popular"
@@ -129,6 +131,7 @@ function ZLibraryBrowser:loadSettings()
     data = json.decode(data)
     self.settings = data
     file:close()
+    self:checkSettingsSanity()
     self:setupHeaders()
 end
 
