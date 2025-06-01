@@ -7,7 +7,7 @@ local ZLibrary = WidgetContainer:new {
 }
 local zlibrarybrowser = require("zlibrarybrowser")
 local NetworkMgr = require("ui/network/manager")
-
+local logger = require("logger")
 function ZLibrary:init()
     ZL_PATH = self.path
     self.ui.menu:registerToMainMenu(self)

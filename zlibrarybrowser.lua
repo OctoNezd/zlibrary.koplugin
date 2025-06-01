@@ -54,6 +54,7 @@ function ZLibraryBrowser:init()
 end
 
 function ZLibraryBrowser:checkSettingsSanity()
+    logger.info("checking settings sanity")
     if self.settings == nil then
         self.settings = {}
     end
@@ -127,6 +128,7 @@ function ZLibraryBrowser:loadSettings()
     local file = io.open(self.settings_path, 'r')
     if file == nil then
         self.settings = {}
+        self:checkSettingsSanity()
         return
     end
     local data = file:read("*a")
