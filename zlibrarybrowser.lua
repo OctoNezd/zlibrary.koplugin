@@ -239,6 +239,7 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
     if (status ~= 200) then
         logger.err("error during request:")
         logger.err(response)
+        logger.err(headers)
         if not suppress_error then
             UIManager:show(InfoMessage:new {
                 text = "Error during request: " .. tostring(ret) .. "-" .. tostring(status) .. "\n\n" .. response
