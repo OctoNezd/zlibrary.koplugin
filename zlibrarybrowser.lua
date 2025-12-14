@@ -213,8 +213,12 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
     if method == "POST" then
         body = urlencode.table(query)
     end
-    logger.info("Request:", path, "Q:", misc.serializeTable(query):gsub(self.settings["password"], "***"), "B:",
-        tostring(body):gsub(self.settings["password"], "***"))
+    local pw = "nopw"
+    if self.settings['password'] then
+        pw = self.settings["password"]
+    end
+    logger.info("Request:", path, "Q:", misc.serializeTable(query):gsub(pw, "***"), "B:",
+        tostring(body):gsub(pw, "***"))
     local response_tbl = {}
     local url = path
     local headers = {
