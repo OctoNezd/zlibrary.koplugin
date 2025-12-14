@@ -213,7 +213,8 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
     if method == "POST" then
         body = urlencode.table(query)
     end
-    logger.info("Request:", path, "Q:", query, "B:", body)
+    logger.info("Request:", path, "Q:", misc.serializeTable(query):gsub(self.settings["password"], "***"), "B:",
+        tostring(body):gsub(self.settings["password"], "***"))
     local response_tbl = {}
     local url = path
     local headers = {
