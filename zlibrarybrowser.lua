@@ -14,7 +14,7 @@ local T = require("ffi/util").template
 
 local Device = require("device")
 local Screen = Device.screen
-ZLibraryBrowser = Menu:extend {
+ZLibraryBrowser = Menu:extend{
     title_bar_left_icon = "align.left"
 }
 require("menus.extensions")
@@ -81,7 +81,9 @@ function ZLibraryBrowser:checkSettingsSanity()
             self:loginFlow(function()
                 if (self.settings.download_dir == nil) then
                     logger.err("no download dir set")
-                    UIManager:nextTick(function() self:downloadDirFlow() end)
+                    UIManager:nextTick(function()
+                        self:downloadDirFlow()
+                    end)
                 end
             end)
         end)
@@ -89,7 +91,9 @@ function ZLibraryBrowser:checkSettingsSanity()
     end
     if (self.settings.download_dir == nil) then
         logger.err("no download dir set")
-        UIManager:nextTick(function() self:downloadDirFlow() end)
+        UIManager:nextTick(function()
+            self:downloadDirFlow()
+        end)
     end
 end
 
@@ -106,7 +110,9 @@ function ZLibraryBrowser:login(endpoint, login, password, remember_me)
         email = login,
         password = password
     })
-    if (not res) then return false end
+    if (not res) then
+        return false
+    end
     self.settings["userid"] = res.user.id
     self.settings["userkey"] = res.user.remix_userkey
     if remember_me then
@@ -121,7 +127,7 @@ end
 function ZLibraryBrowser:setupHeaders()
     self.headers['remix-userid'] = self.settings.userid
     self.headers['remix-userkey'] = self.settings.userkey
-    self.headers['Cookie'] = T("remix-userid=%1; remix-userkey=%2", self.settings.userid, self.settings.userkey)
+    self.headers['Cookie'] = T("remix_userId=%1; remix_userkey=%2", self.settings.userid, self.settings.userkey)
 end
 
 function ZLibraryBrowser:loadSettings()
@@ -142,7 +148,7 @@ end
 function ZLibraryBrowser:saveSettings()
     local file = io.open(self.settings_path, 'w')
     if file == nil then
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Failed to open settings for writing. This should be impossible.")
         })
         return
@@ -189,8 +195,8 @@ function ZLibraryBrowser:onMenuSelect(item)
     elseif misc.startswith(item.action, "similar_") then
         self:onSimilar(args)
     else
-        UIManager:show(InfoMessage:new {
-            text = _("Not implemented"),
+        UIManager:show(InfoMessage:new{
+            text = _("Not implemented")
         })
     end
 end
@@ -201,7 +207,9 @@ function ZLibraryBrowser:onReturn()
     if path then
         -- return to last path
         self.catalog_title = path.title
-        self:onMenuSelect({ action = path.action })
+        self:onMenuSelect({
+            action = path.action
+        })
     else
         self:indexPage()
     end
@@ -217,8 +225,7 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
     if self.settings['password'] then
         pw = self.settings["password"]
     end
-    logger.info("Request:", path, "Q:", misc.serializeTable(query):gsub(pw, "***"), "B:",
-        tostring(body):gsub(pw, "***"))
+    logger.info("Request:", path, "Q:", misc.serializeTable(query):gsub(pw, "***"), "B:", tostring(body):gsub(pw, "***"))
     local response_tbl = {}
     local url = path
     local headers = {
@@ -228,6 +235,7 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
         url = self.settings.endpoint .. path
         headers = self.headers
     end
+    headers["source"] = "zlibrary.koplugin"
     local ret, status, headers = http.request {
         url = url,
         headers = headers,
@@ -241,7 +249,7 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
         logger.err(response)
         logger.err(headers)
         if not suppress_error then
-            UIManager:show(InfoMessage:new {
+            UIManager:show(InfoMessage:new{
                 text = "Error during request: " .. tostring(ret) .. "-" .. tostring(status) .. "\n\n" .. response
             })
         end
@@ -255,7 +263,7 @@ function ZLibraryBrowser:request(path, method, query, suppress_error)
     if res.success ~= 1 then
         logger.err("Request failed!")
         logger.err(res)
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = "Error during request: " .. response
         })
         return false
@@ -271,9 +279,7 @@ function ZLibraryBrowser:convertToItemTable(books)
             template = _("%1 by %2")
         end
         table.insert(book_tbl, {
-            text = T(template,
-                v["title"], v["author"], v["extension"], v["filesizeString"]
-            ),
+            text = T(template, v["title"], v["author"], v["extension"], v["filesizeString"]),
             action = "book_" .. v.id .. "/" .. v.hash
         })
     end
@@ -282,7 +288,7 @@ end
 
 function ZLibraryBrowser:handlePaged(res, page, title)
     if (#res.books) == 0 then
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Nothing found!")
         })
         return
@@ -293,7 +299,7 @@ function ZLibraryBrowser:handlePaged(res, page, title)
     if page == 1 then
         self.book_tbl = self:convertToItemTable(res.books)
         table.insert(self.paths, {
-            title = title,
+            title = title
         })
         self:switchItemTable(title, self.book_tbl)
     else
@@ -329,39 +335,38 @@ end
 function ZLibraryBrowser:onDownload(bookid, is_saved)
     logger.info("Downloading " .. bookid)
     local res = self:request("/eapi/book/" .. bookid .. "/file")
-    if (not res) then return end
+    if (not res) then
+        return
+    end
     if res.file == nil then
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Limit reached? File is nil")
         })
     end
     res = res.file
     if res.allowDownload == false then
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Z-Library didnt allow download: ") .. misc.unescape(res.disallowDownloadMessage:gsub("%b<>", ""))
         })
         return
     end
     if res.description == nil then
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Limit reached? Description is nil")
         })
         return
     end
     if res.extension == nil then
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Limit reached? Extension is nil")
         })
         return
     end
-    local filepath = T("%1/%2_%3.%4",
-        self.settings.download_dir,
-        string.gsub(res.description, "[<>:\"/\\|?*]", ''),
-        bookid:gsub("/", "_"),
-        res.extension)
+    local filepath = T("%1/%2_%3.%4", self.settings.download_dir, string.gsub(res.description, "[<>:\"/\\|?*]", ''),
+        bookid:gsub("/", "_"), res.extension)
     local file = io.open(filepath, 'w')
     if file == nil then
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Failed to open file ") .. filepath
         })
         return
@@ -374,7 +379,7 @@ function ZLibraryBrowser:onDownload(bookid, is_saved)
     if (status ~= 200) then
         logger.err("Request failed!")
         logger.err(res)
-        UIManager:show(InfoMessage:new {
+        UIManager:show(InfoMessage:new{
             text = _("Error during request: ") .. status
         })
         return
@@ -386,37 +391,32 @@ end
 
 function ZLibraryBrowser:showBookDownloadedDialog(bookid, filepath, is_saved)
     local dialog
-    local buttons = {
-        {
-            {
-                text = _("Open"),
-                callback = function()
-                    UIManager.close(dialog)
-                    ReaderUI:doShowReader(filepath)
-                end
-            }
-        }
-    }
+    local buttons = {{{
+        text = _("Open"),
+        callback = function()
+            UIManager.close(dialog)
+            ReaderUI:doShowReader(filepath)
+        end
+    }}}
     if (is_saved) then
-        table.insert(buttons,
-            {
-                {
-                    text = _("Unsave"),
-                    callback = function()
-                        self:unSaveBook(misc.split(bookid, "/")[1])
-                        UIManager:close(dialog)
-                        UIManager:nextTick(function() self:showBookDownloadedDialog(bookid, filepath, false) end)
-                    end
-                }
-            })
+        table.insert(buttons, {{
+            text = _("Unsave"),
+            callback = function()
+                self:unSaveBook(misc.split(bookid, "/")[1])
+                UIManager:close(dialog)
+                UIManager:nextTick(function()
+                    self:showBookDownloadedDialog(bookid, filepath, false)
+                end)
+            end
+        }})
     end
-    table.insert(buttons, {
-        {
-            text = _("Close"),
-            callback = function() UIManager:close(dialog) end
-        }
-    })
-    dialog = ButtonDialog:new {
+    table.insert(buttons, {{
+        text = _("Close"),
+        callback = function()
+            UIManager:close(dialog)
+        end
+    }})
+    dialog = ButtonDialog:new{
         title = "Downloaded to " .. filepath .. " successfully!",
         buttons = buttons
     }
